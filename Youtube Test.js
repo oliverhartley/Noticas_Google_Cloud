@@ -3,7 +3,7 @@
  * Place a small video file (< 15MB) in Google Drive and update the FILE_ID.
  */
 function testGeminiVideoAnalysis() {
-  const FILE_ID = "YOUR_TEST_VIDEO_FILE_ID"; // Replace with a valid File ID
+  const FILE_ID = "1FunHe97jD3QLfoqmTqwPbqllfAY8kw7z"; // Updated with provided File ID
   
   try {
     const file = DriveApp.getFileById(FILE_ID);
