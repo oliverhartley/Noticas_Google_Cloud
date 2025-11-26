@@ -25,5 +25,10 @@ function onOpen() {
     .addItem('Get GWS Blog News', 'getLatestGwsPosts')
     .addItem('Summarize GWS Posts', 'summarizeArticlesGWS')
 
+    .addSeparator()
+    // --- YouTube Functions ---
+    .addItem('Process GCP Videos', 'processAndUploadVideosGCP')
+    .addItem('Process GWS Videos', 'processAndUploadVideosGWS')
+
     .addToUi();
 }

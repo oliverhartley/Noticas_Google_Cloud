@@ -3,26 +3,50 @@
  * @date 2025-11-26
  */
 // --- Configuration ---
-const SOURCE_FOLDER_ID = "1N_MgJYotvEEuyMQU3TA_9S6lQwFrfwuI"; //  GWS Folder
-// const SOURCE_FOLDER_ID = "1mrNTjpckNS4sAcS6vB5M8aRoAvwbECpu"; //  GCP Folder
-const DESTINATION_FOLDER_ID = "14or8nArjbB4BO7nJvmDz2blPSOpQqoLa"; // GWS Folder
-// const DESTINATION_FOLDER_ID = "1aN4NbNa6XqBXlKzWnsyfZ8ByOTOwjsnn"; // GCP Folder
+const CONFIG = {
+  GWS: {
+    SOURCE_FOLDER_ID: "1N_MgJYotvEEuyMQU3TA_9S6lQwFrfwuI",
+    DESTINATION_FOLDER_ID: "14or8nArjbB4BO7nJvmDz2blPSOpQqoLa",
+    SHEET_NAME: "GWS Video Overview",
+    SPREADSHEET_ID: "15-yneYsrmgkpJ5CGK57RVS9chMoV-ixw_w7hsPcaPuo" // Assuming same spreadsheet, adjust if needed
+  },
+  GCP: {
+    SOURCE_FOLDER_ID: "1mrNTjpckNS4sAcS6vB5M8aRoAvwbECpu",
+    DESTINATION_FOLDER_ID: "1aN4NbNa6XqBXlKzWnsyfZ8ByOTOwjsnn",
+    SHEET_NAME: "GCP Video Overview",
+    SPREADSHEET_ID: "15-yneYsrmgkpJ5CGK57RVS9chMoV-ixw_w7hsPcaPuo"
+  }
+};
+
 const YOUTUBE_CHANNEL_ID = "1aN4NbNa6XqBXlKzWnsyfZ8ByOTOwjsnn"; // Kept for reference.
 
 /**
- * Main function to process and upload videos.
+ * Wrapper function for GWS Video Processing.
  */
-function processAndUploadVideos() {
+function processAndUploadVideosGWS() {
+  processAndUploadVideos(CONFIG.GWS);
+}
+
+/**
+ * Wrapper function for GCP Video Processing.
+ */
+function processAndUploadVideosGCP() {
+  processAndUploadVideos(CONFIG.GCP);
+}
+
+/**
+ * Main function to process and upload videos.
+ * @param {object} config - The configuration object (GWS or GCP).
+ */
+function processAndUploadVideos(config) {
   try {
-    const sourceFolder = DriveApp.getFolderById(SOURCE_FOLDER_ID);
-    const destinationFolder = DriveApp.getFolderById(DESTINATION_FOLDER_ID);
-    
-    // --- CORRECTED LINE ---
-    // Using the correct string 'video/mp4' as the argument.
+    const sourceFolder = DriveApp.getFolderById(config.SOURCE_FOLDER_ID);
+    const destinationFolder = DriveApp.getFolderById(config.DESTINATION_FOLDER_ID);
+
     const videos = sourceFolder.getFilesByType('video/mp4');
 
     if (!videos.hasNext()) {
-      Logger.log("No new MP4 videos found in the source folder.");
+      Logger.log(`No new MP4 videos found in the source folder for ${config.SHEET_NAME}.`);
       return;
     }
 
@@ -37,10 +61,14 @@ function processAndUploadVideos() {
           Logger.log(`Generated metadata for ${videoFile.getName()}:`);
           Logger.log(JSON.stringify(metadata, null, 2));
 
-          const uploadSuccessful = uploadVideoToYouTube(videoFile, metadata);
+          const uploadResult = uploadVideoToYouTube(videoFile, metadata);
 
-          if (uploadSuccessful) {
-            Logger.log(`Successfully uploaded ${videoFile.getName()} to YouTube.`);
+          if (uploadResult.success) {
+            Logger.log(`Successfully uploaded ${videoFile.getName()} to YouTube. ID: ${uploadResult.videoId}`);
+
+            // Log to Sheet
+            logVideoToSheet(config, uploadResult.videoId, metadata);
+
             videoFile.moveTo(destinationFolder);
             Logger.log(`Moved ${videoFile.getName()} to the destination folder.`);
           } else {
@@ -57,7 +85,7 @@ function processAndUploadVideos() {
 
   } catch (e) {
     if (e.toString().includes("could not be found")) {
-      Logger.log("Error: A Folder ID is invalid. Please check SOURCE_FOLDER_ID and DESTINATION_FOLDER_ID.");
+      Logger.log("Error: A Folder ID is invalid. Please check configuration.");
     } else {
       Logger.log(`A critical error occurred: ${e.toString()}`);
     }
@@ -71,18 +99,24 @@ function processAndUploadVideos() {
  */
 function generateVideoMetadata(fileName) {
   const apiKey = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
+  if (!apiKey) {
+    Logger.log("Error: GEMINI_API_KEY not found in Script Properties.");
+    return null;
+  }
   
-  const apiEndpoint = `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+  const apiEndpoint = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
 
   const prompt = `
-    As an expert YouTube content strategist specializing in SEO for a tech audience, analyze the following video metadata.
-    Based on this information, generate the following content in SPANISH. Your response MUST be a valid JSON object with the following keys: "title", "description", "hashtags", "tags".
+    As an expert YouTube content strategist specializing in SEO for a tech audience, analyze the following video filename.
+    Based on this information, generate the following content in SPANISH. Your response MUST be a valid JSON object with the following keys: "title", "description", "tags".
 
     Video Filename: "${fileName}"
 
-    - "title": Create a new, compelling, SEO-friendly title that improves upon the original.
-    - "description": Write a new, detailed, 2-3 paragraph description.
-    - "hashtags": Provide an array of 5 relevant hashtags.
+    - "title": Create a new, compelling, SEO-friendly title (max 100 chars) that improves upon the original.
+    - "description": Write a detailed, engaging description. Include:
+        1. A brief summary of the video.
+        2. A "Table of Contents" (TOC) with timestamps (e.g., 0:00 Introduction) based on likely topics inferred from the filename. Since you don't have the video, create a plausible structure.
+        3. 5-10 relevant hashtags at the end.
     - "tags": Provide an array of around 15 high-quality, detailed keywords (tags). Tags should not contain commas.
   `;
 
@@ -132,7 +166,7 @@ function generateVideoMetadata(fileName) {
  * Uploads a video file to YouTube.
  * @param {GoogleAppsScript.Drive.File} videoFile - The video file to upload.
  * @param {object} metadata - The metadata for the video.
- * @return {boolean} True if the upload was successful, false otherwise.
+ * @return {object} Result object with success status and video ID.
  */
 function uploadVideoToYouTube(videoFile, metadata) {
   try {
@@ -148,10 +182,34 @@ function uploadVideoToYouTube(videoFile, metadata) {
     };
 
     const video = YouTube.Videos.insert(videoResource, 'snippet,status', videoFile.getBlob());
-    Logger.log(`Video uploaded with ID: ${video.id}`);
-    return true;
+    return { success: true, videoId: video.id };
   } catch (e) {
     Logger.log(`YouTube upload error: ${e.toString()}`);
-    return false;
+    return { success: false };
+  }
+}
+
+/**
+ * Logs video details to the specified Google Sheet.
+ * @param {object} config - The configuration object.
+ * @param {string} videoId - The YouTube video ID.
+ * @param {object} metadata - The video metadata.
+ */
+function logVideoToSheet(config, videoId, metadata) {
+  try {
+    const ss = SpreadsheetApp.openById(config.SPREADSHEET_ID);
+    let sheet = ss.getSheetByName(config.SHEET_NAME);
+    if (!sheet) {
+      sheet = ss.insertSheet(config.SHEET_NAME);
+      sheet.appendRow(['Link', 'Title', 'Description', 'Date Created']);
+    }
+
+    const videoLink = `https://www.youtube.com/watch?v=${videoId}`;
+    const dateCreated = new Date();
+
+    sheet.appendRow([videoLink, metadata.title, metadata.description, dateCreated]);
+    Logger.log(`Logged video to ${config.SHEET_NAME}`);
+  } catch (e) {
+    Logger.log(`Error logging to sheet: ${e.toString()}`);
   }
 }
