@@ -107,26 +107,49 @@ function generateVideoMetadata(fileName) {
   const apiEndpoint = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
 
   const prompt = `
-    As an expert YouTube content strategist specializing in SEO for a tech audience, analyze the following video filename.
-    Based on this information, generate the following content in SPANISH. Your response MUST be a valid JSON object with the following keys: "title", "description", "tags".
-
-    Video Filename: "${fileName}"
+    As an expert YouTube content strategist specializing in SEO for a tech audience, analyze the following video.
+    Based on the video content, generate the following information in SPANISH. Your response MUST be a valid JSON object with the following keys: "title", "description", "tags".
 
     - "title": Create a new, compelling, SEO-friendly title (max 100 chars) that improves upon the original.
     - "description": Write a detailed, engaging description. Include:
-        1. A brief summary of the video.
-        2. A "Table of Contents" (TOC) with timestamps (e.g., 0:00 Introduction) based on likely topics inferred from the filename. Since you don't have the video, create a plausible structure.
+        1. A brief summary of the video content.
+        2. A "Table of Contents" (TOC) with accurate timestamps (e.g., 0:00 Introduction) based on the actual video content.
         3. 5-10 relevant hashtags at the end.
     - "tags": Provide an array of around 15 high-quality, detailed keywords (tags). Tags should not contain commas.
   `;
 
-  const requestBody = {
-    contents: [{
-      parts: [{
-        text: prompt
+  // For video analysis, we need to send the file content if it's small enough, 
+  // or use the File API which is complex in Apps Script.
+  // Here we attempt inline for small files, but warn about limits.
+  let requestBody;
+  const videoFile = DriveApp.getFilesByName(fileName).next(); // Assuming unique filename for now, or we need to pass the file object
+  const blob = videoFile.getBlob();
+  const fileSizeMB = blob.getBytes().length / (1024 * 1024);
+
+  if (fileSizeMB < 15) { // Base64 encoding increases size by ~33%, 15MB -> ~20MB payload, safe for now.
+    const base64Video = Utilities.base64Encode(blob.getBytes());
+    requestBody = {
+      contents: [{
+        parts: [
+          { text: prompt },
+          {
+            inlineData: {
+              mimeType: "video/mp4",
+              data: base64Video
+            }
+          }
+        ]
       }]
-    }]
-  };
+    };
+  } else {
+    Logger.log(`Video ${fileName} is too large (${fileSizeMB.toFixed(2)}MB) for inline Gemini analysis. Falling back to filename-based analysis.`);
+    // Fallback to filename-based analysis if too large
+    requestBody = {
+      contents: [{
+        parts: [{ text: prompt + `\n\nVideo Filename (Fallback): "${fileName}"` }]
+      }]
+    };
+  }
 
   const options = {
     method: 'post',
@@ -177,7 +200,7 @@ function uploadVideoToYouTube(videoFile, metadata) {
         tags: metadata.tags,
       },
       status: {
-        privacyStatus: 'private' // or 'public' or 'unlisted'
+        privacyStatus: 'public' // Changed from 'private' to 'public'
       }
     };
 
