@@ -1,4 +1,8 @@
 /**
+ * @version 1.0
+ * @date 2025-11-26
+ */
+/**
  * Clears the 'GCP' sheet and fetches the last 10 unique posts from each channel of the Google Cloud Blog RSS feed,
  * with custom date formatting.
  */

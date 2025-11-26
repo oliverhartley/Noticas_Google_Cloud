@@ -1,3 +1,7 @@
+/**
+ * @version 1.0
+ * @date 2025-11-26
+ */
 // --- Configuration ---
 const SOURCE_FOLDER_ID = "1N_MgJYotvEEuyMQU3TA_9S6lQwFrfwuI"; //  GWS Folder
 // const SOURCE_FOLDER_ID = "1mrNTjpckNS4sAcS6vB5M8aRoAvwbECpu"; //  GCP Folder

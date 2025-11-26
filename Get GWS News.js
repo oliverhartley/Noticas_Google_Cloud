@@ -1,4 +1,8 @@
 /**
+ * @version 1.0
+ * @date 2025-11-26
+ */
+/**
  * Clears the 'GWS' sheet and fetches the last 10 unique posts from each channel of the Google Workspace Updates Blog RSS feed,
  * with custom date formatting.
  */

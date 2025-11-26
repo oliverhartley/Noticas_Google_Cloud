@@ -1,4 +1,8 @@
 /**
+ * @version 1.0
+ * @date 2025-11-26
+ */
+/**
  * Deletes the last two rows containing data from the sheet named "GCP Old"
  * in the spreadsheet specified by GWS_SPREADSHEET_ID.
  *

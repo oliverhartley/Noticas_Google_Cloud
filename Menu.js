@@ -1,4 +1,8 @@
 /**
+ * @version 1.0
+ * @date 2025-11-26
+ */
+/**
  * Runs automatically when the Spreadsheet/Document is opened.
  * This function creates a custom menu to access the blog news and summary functions.
  * The menu structure uses a separator to clearly distinguish the GCP and GWS functions.
