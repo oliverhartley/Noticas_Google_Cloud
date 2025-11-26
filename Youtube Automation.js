@@ -104,7 +104,7 @@ function generateVideoMetadata(fileName) {
     return null;
   }
   
-  const apiEndpoint = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-pro:generateContent?key=${apiKey}`;
+  const apiEndpoint = `https://generativelanguage.googleapis.com/v1/models/gemini-3-pro-preview:generateContent?key=${apiKey}`;
 
   const prompt = `
     As an expert YouTube content strategist specializing in SEO for a tech audience, analyze the following video.
