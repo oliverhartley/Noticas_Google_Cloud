@@ -277,9 +277,11 @@ function sendEmailWithSummariesGWS(documentId, bccRecipients, isTest = false) {
       const lastRow = videoSheet.getLastRow();
       if (lastRow > 0) {
         videoLink = videoSheet.getRange('A' + lastRow).getDisplayValue().trim();
-        if (videoLink) {
-          videoTitle = getYouTubeVideoTitle(videoLink) || videoTitle;
-        }
+        const titleFromSheet = videoSheet.getRange('E' + lastRow).getDisplayValue().trim();
+        const descFromSheet = videoSheet.getRange('F' + lastRow).getDisplayValue().trim();
+
+        if (titleFromSheet) videoTitle = titleFromSheet;
+        if (descFromSheet) videoDescription = descFromSheet;
       }
     }
 
@@ -296,6 +298,9 @@ function sendEmailWithSummariesGWS(documentId, bccRecipients, isTest = false) {
 
     if (videoLink) {
       htmlBody += `<p><strong>Resumen de noticias:</strong> <a href="${videoLink}">Ver video</a></p>`;
+      if (videoDescription) {
+        htmlBody += `<p>${videoDescription.replace(/\n/g, '<br>')}</p>`;
+      }
       htmlBody += `<p><em>${phrases.cta}</em></p>`;
     }
 
@@ -331,18 +336,8 @@ function sendEmailWithSummariesGWS(documentId, bccRecipients, isTest = false) {
   }
 }
 
-function getYouTubeVideoTitle(videoUrl) {
-  try {
-    const videoId = videoUrl.split('v=')[1].split('&')[0];
-    const response = YouTube.Videos.list('snippet', { id: videoId });
-    if (response.items && response.items.length > 0) {
-      return response.items[0].snippet.title;
-    }
-  } catch (e) {
-    Logger.log(`Error fetching YouTube title: ${e.toString()}`);
-  }
-  return null;
-}
+// Helper function to get YouTube title is no longer needed but kept for fallback if wanted, 
+// but we are now using the sheet. Removing it to clean up.
 
 function sendTestEmailGWS() {
   const ss = SpreadsheetApp.openById(GWS_SPREADSHEET_ID);

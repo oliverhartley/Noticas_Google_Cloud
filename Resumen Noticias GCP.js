@@ -290,9 +290,11 @@ function sendEmailWithSummariesGCP(documentId, bccRecipients, isTest = false) {
       const lastRow = videoSheet.getLastRow();
       if (lastRow > 0) {
         videoLink = videoSheet.getRange('A' + lastRow).getDisplayValue().trim();
-        if (videoLink) {
-          videoTitle = getYouTubeVideoTitle(videoLink) || videoTitle;
-        }
+        const titleFromSheet = videoSheet.getRange('E' + lastRow).getDisplayValue().trim();
+        const descFromSheet = videoSheet.getRange('F' + lastRow).getDisplayValue().trim();
+
+        if (titleFromSheet) videoTitle = titleFromSheet;
+        if (descFromSheet) videoDescription = descFromSheet;
       }
     }
 
@@ -309,6 +311,9 @@ function sendEmailWithSummariesGCP(documentId, bccRecipients, isTest = false) {
 
     if (videoLink) {
       htmlBody += `<p><strong>Resumen de noticias:</strong> <a href="${videoLink}">Ver video</a></p>`;
+      if (videoDescription) {
+        htmlBody += `<p>${videoDescription.replace(/\n/g, '<br>')}</p>`;
+      }
       htmlBody += `<p><em>${phrases.cta}</em></p>`;
     }
 

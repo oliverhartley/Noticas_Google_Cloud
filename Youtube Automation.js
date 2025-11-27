@@ -88,7 +88,8 @@ function processAndUploadVideos(config) {
         Logger.log(`Successfully uploaded ${latestVideo.getName()} to YouTube. ID: ${uploadResult.videoId}`);
 
         // Log to Sheet (URL and settings)
-        logVideoToSheet(config, uploadResult.videoId, true, true); // Assuming success if upload worked
+        const videoUrl = `https://www.youtube.com/watch?v=${uploadResult.videoId}`;
+        logVideoToSheet(videoUrl, config, true, true, metadata.title, metadata.description); // Assuming success if upload worked
 
         latestVideo.moveTo(destinationFolder);
         Logger.log(`Moved ${latestVideo.getName()} to the destination folder.`);
@@ -319,12 +320,14 @@ function uploadVideoToYouTube(videoFile, metadata) {
 
 /**
  * Logs video details to the specified Google Sheet.
+ * @param {string} videoUrl - The YouTube video URL.
  * @param {object} config - The configuration object.
- * @param {string} videoId - The YouTube video ID.
  * @param {boolean} notMadeForKids - Whether the video is not made for kids.
  * @param {boolean} subtitlesEnabled - Whether subtitles are enabled.
+ * @param {string} title - The video title.
+ * @param {string} description - The video description.
  */
-function logVideoToSheet(config, videoId, notMadeForKids, subtitlesEnabled) {
+function logVideoToSheet(videoUrl, config, notMadeForKids, subtitlesEnabled, title, description) {
   try {
     const ss = SpreadsheetApp.openById(config.SPREADSHEET_ID);
     let sheet = ss.getSheetByName(config.SHEET_NAME);
@@ -332,10 +335,8 @@ function logVideoToSheet(config, videoId, notMadeForKids, subtitlesEnabled) {
       sheet = ss.insertSheet(config.SHEET_NAME);
     }
 
-    const videoLink = `https://www.youtube.com/watch?v=${videoId}`;
-
-    // Append row with URL and placeholders for checkboxes
-    sheet.appendRow([videoLink, 'uploaded', notMadeForKids, subtitlesEnabled]);
+    // Append row with URL, initial status, settings, title, and description
+    sheet.appendRow([videoUrl, 'uploaded', notMadeForKids, subtitlesEnabled, title, description]);
     const lastRow = sheet.getLastRow();
 
     // Add checkboxes to Columns C and D
@@ -343,7 +344,7 @@ function logVideoToSheet(config, videoId, notMadeForKids, subtitlesEnabled) {
     sheet.getRange(lastRow, 3).setValue(notMadeForKids);
     sheet.getRange(lastRow, 4).setValue(subtitlesEnabled);
 
-    Logger.log(`Logged video link and settings to ${config.SHEET_NAME}`);
+    Logger.log(`Logged video link, settings, title, and description to ${config.SHEET_NAME}`);
   } catch (e) {
     Logger.log(`Error logging to sheet: ${e.toString()}`);
   }
