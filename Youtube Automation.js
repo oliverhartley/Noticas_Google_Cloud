@@ -281,10 +281,14 @@ function generateAndSaveBlackboardSummary(fileUri, apiKey, folderId, videoTitle)
       if (jsonResponse.candidates && jsonResponse.candidates[0] && jsonResponse.candidates[0].content && jsonResponse.candidates[0].content.parts && jsonResponse.candidates[0].content.parts[0]) {
         const summaryText = jsonResponse.candidates[0].content.parts[0].text;
 
+        // Save text summary (optional, but good for backup)
         const folder = DriveApp.getFolderById(folderId);
-        const fileName = `Resumen Pizarra - ${videoTitle}.txt`;
-        folder.createFile(fileName, summaryText, MimeType.PLAIN_TEXT);
-        Logger.log(`Blackboard summary saved for "${videoTitle}" in folder ID: ${folderId}`);
+        const textFileName = `Resumen Pizarra - ${videoTitle}.txt`;
+        folder.createFile(textFileName, summaryText, MimeType.PLAIN_TEXT);
+        Logger.log(`Text summary saved to ${textFileName}`);
+
+        // Generate and Save Image
+        generateAndSaveBlackboardImage(summaryText, apiKey, folderId, videoTitle);
       } else {
         Logger.log("Failed to extract summary from Gemini response.");
       }
@@ -293,6 +297,48 @@ function generateAndSaveBlackboardSummary(fileUri, apiKey, folderId, videoTitle)
     }
   } catch (e) {
     Logger.log(`Exception in generateAndSaveBlackboardSummary: ${e.toString()}`);
+  }
+}
+
+/**
+ * Generates an image of a blackboard with the summary text using Gemini.
+ */
+function generateAndSaveBlackboardImage(summaryText, apiKey, folderId, videoTitle) {
+  try {
+    // Using the model name provided by the user, assuming it supports text-to-image
+    const apiEndpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateImages?key=${apiKey}`;
+
+    const prompt = `Create a realistic image of a school blackboard with the following text written on it in white chalk. The text should be legible and fit on the board. Text: ${summaryText}`;
+
+    const requestBody = {
+      prompt: prompt,
+      // Add other parameters if known/needed for this specific API
+    };
+
+    const options = {
+      method: 'post',
+      contentType: 'application/json',
+      payload: JSON.stringify(requestBody),
+      muteHttpExceptions: true
+    };
+
+    const response = UrlFetchApp.fetch(apiEndpoint, options);
+    if (response.getResponseCode() === 200) {
+      const jsonResponse = JSON.parse(response.getContentText());
+      // Assuming the response contains image data in a standard format (e.g., base64 in 'images' array)
+      if (jsonResponse.images && jsonResponse.images[0] && jsonResponse.images[0].base64) {
+        const imageBlob = Utilities.newBlob(Utilities.base64Decode(jsonResponse.images[0].base64), 'image/png', `Resumen Pizarra - ${videoTitle}.png`);
+        const folder = DriveApp.getFolderById(folderId);
+        folder.createFile(imageBlob);
+        Logger.log(`Blackboard image saved for "${videoTitle}" in folder ID: ${folderId}`);
+      } else {
+        Logger.log("Failed to extract image from Gemini response. Response: " + response.getContentText());
+      }
+    } else {
+      Logger.log(`Error generating blackboard image: ${response.getResponseCode()} - ${response.getContentText()}`);
+    }
+  } catch (e) {
+    Logger.log(`Exception in generateAndSaveBlackboardImage: ${e.toString()}`);
   }
 }
 
