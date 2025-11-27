@@ -35,6 +35,20 @@ function processAndUploadVideosGCP() {
 }
 
 /**
+ * Wrapper function for GWS Video Status Check.
+ */
+function checkVideoStatusGWS() {
+  checkVideoStatus(CONFIG.GWS);
+}
+
+/**
+ * Wrapper function for GCP Video Status Check.
+ */
+function checkVideoStatusGCP() {
+  checkVideoStatus(CONFIG.GCP);
+}
+
+/**
  * Main function to process and upload videos.
  * @param {object} config - The configuration object (GWS or GCP).
  */
@@ -143,5 +157,59 @@ function logVideoToSheet(config, videoId) {
     Logger.log(`Logged video link to ${config.SHEET_NAME}`);
   } catch (e) {
     Logger.log(`Error logging to sheet: ${e.toString()}`);
+  }
+}
+
+/**
+ * Checks the status of videos listed in the sheet and updates Column B.
+ * @param {object} config - The configuration object.
+ */
+function checkVideoStatus(config) {
+  try {
+    const ss = SpreadsheetApp.openById(config.SPREADSHEET_ID);
+    const sheet = ss.getSheetByName(config.SHEET_NAME);
+    if (!sheet) {
+      Logger.log(`Sheet ${config.SHEET_NAME} not found.`);
+      return;
+    }
+
+    const lastRow = sheet.getLastRow();
+    if (lastRow < 1) return;
+
+    const range = sheet.getRange(1, 1, lastRow, 2); // Columns A and B
+    const values = range.getValues();
+
+    for (let i = 0; i < values.length; i++) {
+      const url = values[i][0];
+      let currentStatus = values[i][1];
+
+      if (url && url.includes('youtube.com/watch?v=')) {
+        // Only check if status is not already 'processed' or if it's empty/pending
+        if (!currentStatus || currentStatus === 'pending' || currentStatus === 'uploaded') {
+          const videoId = url.split('v=')[1].split('&')[0];
+          try {
+            const response = YouTube.Videos.list('status', { id: videoId });
+            if (response.items && response.items.length > 0) {
+              const status = response.items[0].status;
+              const uploadStatus = status.uploadStatus; // e.g., 'processed', 'uploaded', 'failed'
+              const privacyStatus = status.privacyStatus; // e.g., 'public', 'private'
+
+              const newStatus = `${uploadStatus} (${privacyStatus})`;
+              if (newStatus !== currentStatus) {
+                sheet.getRange(i + 1, 2).setValue(newStatus);
+                Logger.log(`Updated status for ${videoId}: ${newStatus}`);
+              }
+            } else {
+              sheet.getRange(i + 1, 2).setValue('Not Found');
+            }
+          } catch (e) {
+            Logger.log(`Error checking status for ${videoId}: ${e.toString()}`);
+          }
+        }
+      }
+    }
+    Logger.log(`Status check complete for ${config.SHEET_NAME}.`);
+  } catch (e) {
+    Logger.log(`Error in checkVideoStatus: ${e.toString()}`);
   }
 }

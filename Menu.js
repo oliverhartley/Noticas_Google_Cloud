@@ -28,7 +28,10 @@ function onOpen() {
     .addSeparator()
     // --- YouTube Functions ---
     .addItem('Process GCP Videos', 'processAndUploadVideosGCP')
+    .addItem('Check GCP Video Status', 'checkVideoStatusGCP')
+    .addSeparator()
     .addItem('Process GWS Videos', 'processAndUploadVideosGWS')
+    .addItem('Check GWS Video Status', 'checkVideoStatusGWS')
 
     .addToUi();
 }
