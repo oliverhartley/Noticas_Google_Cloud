@@ -393,6 +393,7 @@ function getHtmlContentFromDocGWS(documentId, openingPhraseHtml) {
 
         if (type === DocumentApp.ElementType.PARAGRAPH) {
             const p = child.asParagraph();
+          const textElement = p.editAsText();
             const text = p.getText();
             if (text.trim().length === 0) continue; 
 
@@ -403,19 +404,22 @@ function getHtmlContentFromDocGWS(documentId, openingPhraseHtml) {
                 continue;
             }
 
-            const textElement = p.editAsText();
-            const isBold = textElement.isBold();
-            const linkUrl = textElement.getLinkUrl();
+          // Check first character for bold/link to determine if it's a title
+          // This is more robust than checking the whole paragraph
+          const isBold = textElement.isBold(0);
+          const linkUrl = textElement.getLinkUrl(0);
 
             let style = 'padding: 0;';
-            if (isBold) {
+          if (isBold || linkUrl) {
+          // Treat as Title
                 style += ' font-weight: bold; margin: 10px 0 0 0; color: #1a73e8; font-size: 12pt;';
             } else {
+            // Treat as Description
                 style += ' font-weight: normal; margin: 0 0 10px 0; color: #3c4043; font-size: 11pt;';
             }
 
             let elementHtml = `<p style="${style}">`;
-            if (linkUrl && isBold) {
+          if (linkUrl && (isBold || linkUrl)) { // If it has a link and we decided it's a title
                 elementHtml += `<a href="${linkUrl}" style="text-decoration: none; color: #1a73e8;">${text}</a>`;
             } else {
                 elementHtml += text;
