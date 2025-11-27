@@ -110,3 +110,41 @@ function validateEmails(emailString) {
   }
   return validEmails;
 }
+
+/**
+ * Converts timestamps in text (e.g., 0:00, 1:15) into clickable YouTube links.
+ * @param {string} text - The text containing timestamps.
+ * @param {string} videoUrl - The base YouTube video URL.
+ * @return {string} The text with timestamps converted to HTML links.
+ */
+function linkifyTimestamps(text, videoUrl) {
+  if (!videoUrl || !text) return text;
+
+  let videoId = '';
+  try {
+    if (videoUrl.includes('v=')) {
+      videoId = videoUrl.split('v=')[1].split('&')[0];
+    } else if (videoUrl.includes('youtu.be/')) {
+      videoId = videoUrl.split('youtu.be/')[1].split('?')[0];
+    }
+  } catch (e) {
+    return text; // Return original text if URL parsing fails
+  }
+
+  if (!videoId) return text;
+
+  // Regex to match timestamps like 0:00, 1:15, 1:02:30 at the beginning of a line or after a space
+  // Added support for optional hours
+  return text.replace(/(^|\s)((\d{1,2}:)?(\d{1,2}):(\d{2}))/gm, (match, prefix, timestamp, hours, minutes, seconds) => {
+    let totalSeconds = 0;
+    if (hours) {
+      // hours match includes the trailing colon, e.g., "1:"
+      totalSeconds += parseInt(hours.replace(':', '')) * 3600;
+    }
+    totalSeconds += parseInt(minutes) * 60;
+    totalSeconds += parseInt(seconds);
+
+    const link = `https://youtu.be/${videoId}?t=${totalSeconds}`;
+    return `${prefix}<a href="${link}" style="color: #1a73e8; text-decoration: none;">${timestamp}</a>`;
+  });
+}

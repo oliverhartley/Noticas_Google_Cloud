@@ -299,7 +299,8 @@ function sendEmailWithSummariesGWS(documentId, bccRecipients, isTest = false) {
     if (videoLink) {
       htmlBody += `<p><strong>Resumen de noticias:</strong> <a href="${videoLink}">Ver video</a></p>`;
       if (videoDescription) {
-        htmlBody += `<p>${videoDescription.replace(/\n/g, '<br>')}</p>`;
+        const linkifiedDescription = linkifyTimestamps(videoDescription, videoLink);
+        htmlBody += `<p>${linkifiedDescription.replace(/\n/g, '<br>')}</p>`;
       }
       htmlBody += `<p><em>${phrases.cta}</em></p>`;
     }
