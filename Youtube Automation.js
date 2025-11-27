@@ -165,6 +165,10 @@ function logVideoToSheet(config, videoId) {
  * @param {object} config - The configuration object.
  */
 function checkVideoStatus(config) {
+  if (!config || !config.SPREADSHEET_ID) {
+    Logger.log("Error: Invalid configuration passed to checkVideoStatus. Please run checkVideoStatusGCP or checkVideoStatusGWS instead.");
+    return;
+  }
   try {
     const ss = SpreadsheetApp.openById(config.SPREADSHEET_ID);
     const sheet = ss.getSheetByName(config.SHEET_NAME);
