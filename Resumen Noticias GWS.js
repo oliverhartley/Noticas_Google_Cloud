@@ -317,7 +317,7 @@ function sendEmailWithSummariesGWS(documentId, bccRecipients, isTest = false) {
 
     MailApp.sendEmail({
       bcc: bccRecipients,
-      subject: isTest ? `[TEST] ${subject}` : subject,
+      subject: subject,
       htmlBody: htmlBody
     });
     Logger.log(`Successfully sent GWS email to: ${bccRecipients}`);

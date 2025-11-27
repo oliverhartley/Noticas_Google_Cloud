@@ -332,7 +332,7 @@ function sendEmailWithSummariesGCP(documentId, bccRecipients, isTest = false) {
 
     MailApp.sendEmail({
       bcc: bccRecipients,
-      subject: isTest ? `[TEST] ${subject}` : subject,
+      subject: subject,
       htmlBody: htmlBody
     });
     Logger.log(`Successfully sent GCP email to: ${bccRecipients}`);
