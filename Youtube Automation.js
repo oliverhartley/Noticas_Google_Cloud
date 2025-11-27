@@ -89,8 +89,8 @@ function processAndUploadVideos(config) {
       if (uploadResult.success) {
         Logger.log(`Successfully uploaded ${latestVideo.getName()} to YouTube. ID: ${uploadResult.videoId}`);
 
-        // Log to Sheet (Only URL)
-        logVideoToSheet(config, uploadResult.videoId);
+        // Log to Sheet (Only URL and settings)
+        logVideoToSheet(config, uploadResult.videoId, true, true); // Assuming success if upload worked
 
         latestVideo.moveTo(destinationFolder);
         Logger.log(`Moved ${latestVideo.getName()} to the destination folder.`);
@@ -144,8 +144,10 @@ function uploadVideoToYouTube(videoFile, metadata) {
  * Logs video details to the specified Google Sheet.
  * @param {object} config - The configuration object.
  * @param {string} videoId - The YouTube video ID.
+ * @param {boolean} notMadeForKids - Whether the video is not made for kids.
+ * @param {boolean} subtitlesEnabled - Whether subtitles are enabled.
  */
-function logVideoToSheet(config, videoId) {
+function logVideoToSheet(config, videoId, notMadeForKids, subtitlesEnabled) {
   try {
     const ss = SpreadsheetApp.openById(config.SPREADSHEET_ID);
     let sheet = ss.getSheetByName(config.SHEET_NAME);
@@ -155,16 +157,23 @@ function logVideoToSheet(config, videoId) {
 
     const videoLink = `https://www.youtube.com/watch?v=${videoId}`;
 
-    // Append only the link to the first available row in Column A
-    sheet.appendRow([videoLink]);
-    Logger.log(`Logged video link to ${config.SHEET_NAME}`);
+    // Append row with URL and placeholders for checkboxes
+    sheet.appendRow([videoLink, 'uploaded', notMadeForKids, subtitlesEnabled]);
+    const lastRow = sheet.getLastRow();
+
+    // Add checkboxes to Columns C and D
+    sheet.getRange(lastRow, 3, 1, 2).insertCheckboxes();
+    sheet.getRange(lastRow, 3).setValue(notMadeForKids);
+    sheet.getRange(lastRow, 4).setValue(subtitlesEnabled);
+
+    Logger.log(`Logged video link and settings to ${config.SHEET_NAME}`);
   } catch (e) {
     Logger.log(`Error logging to sheet: ${e.toString()}`);
   }
 }
 
 /**
- * Checks the status of videos listed in the sheet and updates Column B.
+ * Checks the status of videos listed in the sheet and updates Columns B, C, and D.
  * @param {object} config - The configuration object.
  */
 function checkVideoStatus(config) {
@@ -183,7 +192,7 @@ function checkVideoStatus(config) {
     const lastRow = sheet.getLastRow();
     if (lastRow < 1) return;
 
-    const range = sheet.getRange(1, 1, lastRow, 2); // Columns A and B
+    const range = sheet.getRange(1, 1, lastRow, 4); // Columns A, B, C, D
     const values = range.getValues();
 
     for (let i = 0; i < values.length; i++) {
@@ -191,27 +200,43 @@ function checkVideoStatus(config) {
       let currentStatus = values[i][1];
 
       if (url && url.includes('youtube.com/watch?v=')) {
-        // Only check if status is not already 'processed' or if it's empty/pending
-        if (!currentStatus || currentStatus === 'pending' || currentStatus === 'uploaded') {
-          const videoId = url.split('v=')[1].split('&')[0];
-          try {
-            const response = YouTube.Videos.list('status', { id: videoId });
-            if (response.items && response.items.length > 0) {
-              const status = response.items[0].status;
-              const uploadStatus = status.uploadStatus; // e.g., 'processed', 'uploaded', 'failed'
-              const privacyStatus = status.privacyStatus; // e.g., 'public', 'private'
+        const videoId = url.split('v=')[1].split('&')[0];
+        try {
+          const response = YouTube.Videos.list('status,snippet', { id: videoId });
+          if (response.items && response.items.length > 0) {
+            const video = response.items[0];
+            const status = video.status;
+            const snippet = video.snippet;
 
-              const newStatus = `${uploadStatus} (${privacyStatus})`;
-              if (newStatus !== currentStatus) {
-                sheet.getRange(i + 1, 2).setValue(newStatus);
-                Logger.log(`Updated status for ${videoId}: ${newStatus}`);
-              }
-            } else {
-              sheet.getRange(i + 1, 2).setValue('Not Found');
+            const uploadStatus = status.uploadStatus;
+            const privacyStatus = status.privacyStatus;
+            const madeForKids = status.madeForKids; // This is what YouTube actually set
+            const audioLanguage = snippet.defaultAudioLanguage;
+
+            const newStatus = `${uploadStatus} (${privacyStatus})`;
+            if (newStatus !== currentStatus) {
+              sheet.getRange(i + 1, 2).setValue(newStatus);
             }
-          } catch (e) {
-            Logger.log(`Error checking status for ${videoId}: ${e.toString()}`);
+
+            // Update Checkboxes
+            const notMadeForKidsValue = !madeForKids;
+            const subtitlesValue = (audioLanguage === 'es-419' || audioLanguage === 'es');
+
+            const cellC = sheet.getRange(i + 1, 3);
+            const cellD = sheet.getRange(i + 1, 4);
+
+            if (cellC.getDataValidation() === null) cellC.insertCheckboxes();
+            if (cellD.getDataValidation() === null) cellD.insertCheckboxes();
+
+            cellC.setValue(notMadeForKidsValue);
+            cellD.setValue(subtitlesValue);
+
+            Logger.log(`Updated status and settings for ${videoId}`);
+          } else {
+            sheet.getRange(i + 1, 2).setValue('Not Found');
           }
+        } catch (e) {
+          Logger.log(`Error checking status for ${videoId}: ${e.toString()}`);
         }
       }
     }
