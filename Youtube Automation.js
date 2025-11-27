@@ -246,7 +246,7 @@ function generateContentWithFile(fileUri, apiKey, fileName) {
     As an expert YouTube content strategist specializing in SEO for a tech audience, analyze the following video.
     Based on the video content, generate the following information in SPANISH. Your response MUST be a valid JSON object with the following keys: "title", "description", "tags".
 
-    - "title": Create a new, compelling, SEO-friendly title (max 100 chars) that improves upon the original.
+    - "title": Create a new, compelling, SEO-friendly title (max 100 chars) that improves upon the original. Do NOT include prefixes like "Google Cloud News:" or "Noticias de Google Cloud:". Start directly with the topic.
     - "description": Write a detailed, engaging description. Include:
         1. A brief summary of the video content.
         2. A "Table of Contents" (TOC) with accurate timestamps (e.g., 0:00 Introduction) based on the actual video content.
