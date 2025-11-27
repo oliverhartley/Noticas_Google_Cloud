@@ -123,9 +123,12 @@ function uploadVideoToYouTube(videoFile, metadata) {
       snippet: {
         title: metadata.title,
         description: metadata.description,
+        defaultAudioLanguage: 'es-419', // Spanish (Latin America)
+        defaultLanguage: 'es-419'
       },
       status: {
-        privacyStatus: 'public'
+        privacyStatus: 'public',
+        selfDeclaredMadeForKids: false
       }
     };
 
