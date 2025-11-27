@@ -120,15 +120,127 @@ function generateVideoMetadata(videoFile) {
 
   if (!apiKey) {
     Logger.log("Error: GEMINI_API_KEY not found. Falling back to filename.");
-    return {
-      title: fileName.replace('.mp4', ''),
-      description: `Video: ${fileName}`,
-      tags: []
-    };
+    return fallbackMetadata(fileName);
   }
 
-  const apiEndpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-preview:generateContent?key=${apiKey}`;
+  try {
+    // 1. Upload to Gemini File API
+    const fileUri = uploadToGeminiFileAPI(videoFile, apiKey);
+    if (!fileUri) {
+      Logger.log("Failed to upload to Gemini File API. Falling back.");
+      return fallbackMetadata(fileName);
+    }
 
+    // 2. Wait for Processing
+    if (!waitForFileProcessing(fileUri, apiKey)) {
+      Logger.log("File processing timed out or failed. Falling back.");
+      deleteGeminiFile(fileUri, apiKey); // Try to clean up anyway
+      return fallbackMetadata(fileName);
+    }
+
+    // 3. Generate Content
+    const metadata = generateContentWithFile(fileUri, apiKey, fileName);
+
+    // 4. Cleanup
+    deleteGeminiFile(fileUri, apiKey);
+
+    if (metadata) {
+      return metadata;
+    } else {
+      Logger.log("Failed to generate metadata from file. Falling back.");
+      return fallbackMetadata(fileName);
+    }
+
+  } catch (e) {
+    Logger.log(`Exception in generateVideoMetadata: ${e.toString()}. Falling back.`);
+    return fallbackMetadata(fileName);
+  }
+}
+
+function fallbackMetadata(fileName) {
+  return {
+    title: fileName.replace('.mp4', ''),
+    description: `Video: ${fileName}`,
+    tags: []
+  };
+}
+
+function uploadToGeminiFileAPI(videoFile, apiKey) {
+  const blob = videoFile.getBlob();
+  const fileSize = blob.getBytes().length;
+  const mimeType = "video/mp4";
+  const fileName = videoFile.getName();
+
+  const initUrl = `https://generativelanguage.googleapis.com/upload/v1beta/files?key=${apiKey}`;
+
+  // Step 1: Initialize Resumable Upload
+  const initHeaders = {
+    'X-Goog-Upload-Protocol': 'resumable',
+    'X-Goog-Upload-Command': 'start',
+    'X-Goog-Upload-Header-Content-Length': fileSize.toString(),
+    'X-Goog-Upload-Header-Content-Type': mimeType,
+    'Content-Type': 'application/json'
+  };
+
+  const initResponse = UrlFetchApp.fetch(initUrl, {
+    method: 'post',
+    headers: initHeaders,
+    payload: JSON.stringify({ file: { displayName: fileName } }),
+    muteHttpExceptions: true
+  });
+
+  if (initResponse.getResponseCode() !== 200) {
+    Logger.log(`Init upload failed: ${initResponse.getContentText()}`);
+    return null;
+  }
+
+  const uploadUrl = initResponse.getHeaders()['X-Goog-Upload-URL'] || initResponse.getHeaders()['x-goog-upload-url'];
+  if (!uploadUrl) return null;
+
+  // Step 2: Upload Data
+  const uploadResponse = UrlFetchApp.fetch(uploadUrl, {
+    method: 'post', // Resumable upload uses POST or PUT for the actual data
+    headers: {
+      'X-Goog-Upload-Command': 'upload, finalize',
+      'X-Goog-Upload-Offset': '0',
+      'Content-Type': mimeType
+    },
+    payload: blob,
+    muteHttpExceptions: true
+  });
+
+  if (uploadResponse.getResponseCode() !== 200 && uploadResponse.getResponseCode() !== 201) {
+    Logger.log(`Upload data failed: ${uploadResponse.getContentText()}`);
+    return null;
+  }
+
+  const fileInfo = JSON.parse(uploadResponse.getContentText());
+  return fileInfo.file.uri;
+}
+
+function waitForFileProcessing(fileUri, apiKey) {
+  const fileId = fileUri.split('/').pop();
+  const getUrl = `https://generativelanguage.googleapis.com/v1beta/files/${fileId}?key=${apiKey}`;
+
+  for (let i = 0; i < 10; i++) { // Poll up to 10 times
+    const response = UrlFetchApp.fetch(getUrl, { muteHttpExceptions: true });
+    if (response.getResponseCode() === 200) {
+      const fileInfo = JSON.parse(response.getContentText());
+      if (fileInfo.state === 'ACTIVE') {
+        return true;
+      } else if (fileInfo.state === 'FAILED') {
+        Logger.log("File processing failed on Gemini side.");
+        return false;
+      }
+      Logger.log(`File state: ${fileInfo.state}. Waiting...`);
+    }
+    Utilities.sleep(2000); // Wait 2 seconds between polls
+  }
+  return false; // Timeout
+}
+
+function generateContentWithFile(fileUri, apiKey, fileName) {
+  const apiEndpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-preview:generateContent?key=${apiKey}`;
   const prompt = `
     As an expert YouTube content strategist specializing in SEO for a tech audience, analyze the following video.
     Based on the video content, generate the following information in SPANISH. Your response MUST be a valid JSON object with the following keys: "title", "description", "tags".
@@ -141,33 +253,14 @@ function generateVideoMetadata(videoFile) {
     - "tags": Provide an array of around 15 high-quality, detailed keywords (tags). Tags should not contain commas.
   `;
 
-  const blob = videoFile.getBlob();
-  const fileSizeMB = blob.getBytes().length / (1024 * 1024);
-  let requestBody;
-
-  if (fileSizeMB < 15) { // Base64 encoding limit
-    const base64Video = Utilities.base64Encode(blob.getBytes());
-    requestBody = {
-      contents: [{
-        parts: [
-          { text: prompt },
-          {
-            inlineData: {
-              mimeType: "video/mp4",
-              data: base64Video
-            }
-          }
-        ]
-      }]
-    };
-  } else {
-    Logger.log(`Video ${fileName} is too large (${fileSizeMB.toFixed(2)}MB) for inline Gemini analysis. Falling back to filename-based analysis.`);
-    requestBody = {
-      contents: [{
-        parts: [{ text: prompt + `\n\nVideo Filename (Fallback): "${fileName}"` }]
-      }]
-    };
-  }
+  const requestBody = {
+    contents: [{
+      parts: [
+        { text: prompt },
+        { fileData: { mimeType: "video/mp4", fileUri: fileUri } }
+      ]
+    }]
+  };
 
   const options = {
     method: 'post',
@@ -176,30 +269,22 @@ function generateVideoMetadata(videoFile) {
     muteHttpExceptions: true
   };
 
-  try {
-    const response = UrlFetchApp.fetch(apiEndpoint, options);
-    const responseCode = response.getResponseCode();
-    const responseText = response.getContentText();
-
-    if (responseCode === 200) {
-      const jsonResponse = JSON.parse(responseText);
-      if (jsonResponse.candidates && jsonResponse.candidates[0] && jsonResponse.candidates[0].content && jsonResponse.candidates[0].content.parts && jsonResponse.candidates[0].content.parts[0]) {
-        const contentText = jsonResponse.candidates[0].content.parts[0].text;
-        const cleanedJsonString = contentText.replace(/```json/g, "").replace(/```/g, "").trim();
-        return JSON.parse(cleanedJsonString);
-      }
+  const response = UrlFetchApp.fetch(apiEndpoint, options);
+  if (response.getResponseCode() === 200) {
+    const jsonResponse = JSON.parse(response.getContentText());
+    if (jsonResponse.candidates && jsonResponse.candidates[0] && jsonResponse.candidates[0].content && jsonResponse.candidates[0].content.parts && jsonResponse.candidates[0].content.parts[0]) {
+      const contentText = jsonResponse.candidates[0].content.parts[0].text;
+      const cleanedJsonString = contentText.replace(/```json/g, "").replace(/```/g, "").trim();
+      return JSON.parse(cleanedJsonString);
     }
-    Logger.log(`Gemini API failed or returned unexpected format. Status: ${responseCode}. Falling back to filename.`);
-  } catch (e) {
-    Logger.log(`Exception calling Gemini API: ${e.toString()}. Falling back to filename.`);
   }
+  return null;
+}
 
-  // Fallback
-  return {
-    title: fileName.replace('.mp4', ''),
-    description: `Video: ${fileName}`,
-    tags: []
-  };
+function deleteGeminiFile(fileUri, apiKey) {
+  const fileId = fileUri.split('/').pop();
+  const deleteUrl = `https://generativelanguage.googleapis.com/v1beta/files/${fileId}?key=${apiKey}`;
+  UrlFetchApp.fetch(deleteUrl, { method: 'delete', muteHttpExceptions: true });
 }
 
 /**
