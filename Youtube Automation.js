@@ -8,13 +8,17 @@ const CONFIG = {
     SOURCE_FOLDER_ID: "1N_MgJYotvEEuyMQU3TA_9S6lQwFrfwuI",
     DESTINATION_FOLDER_ID: "14or8nArjbB4BO7nJvmDz2blPSOpQqoLa",
     SHEET_NAME: "GWS Video Overview",
-    SPREADSHEET_ID: "15-yneYsrmgkpJ5CGK57RVS9chMoV-ixw_w7hsPcaPuo" // Assuming same spreadsheet, adjust if needed
+    SPREADSHEET_ID: "15-yneYsrmgkpJ5CGK57RVS9chMoV-ixw_w7hsPcaPuo", // Assuming same spreadsheet, adjust if needed
+    VIDEO_SHEET_NAME: 'GWS Video Overview',
+    BLACKBOARD_FOLDER_ID: '1av7Fs1fKEDKwzP1morVrOJ0eunw-6sJz'
   },
   GCP: {
     SOURCE_FOLDER_ID: "1mrNTjpckNS4sAcS6vB5M8aRoAvwbECpu",
     DESTINATION_FOLDER_ID: "1aN4NbNa6XqBXlKzWnsyfZ8ByOTOwjsnn",
     SHEET_NAME: "GCP Video Overview",
-    SPREADSHEET_ID: "15-yneYsrmgkpJ5CGK57RVS9chMoV-ixw_w7hsPcaPuo"
+    SPREADSHEET_ID: "15-yneYsrmgkpJ5CGK57RVS9chMoV-ixw_w7hsPcaPuo",
+    VIDEO_SHEET_NAME: 'GCP Video Overview',
+    BLACKBOARD_FOLDER_ID: '1spu6q19oLUdtUV2uUVNAcTDnmWHMYhEw'
   }
 };
 
@@ -79,23 +83,22 @@ function processAndUploadVideos(config) {
     if (latestVideo) {
       Logger.log(`Processing latest video: ${latestVideo.getName()}`);
 
-      // Try to generate metadata with Gemini
-      const metadata = generateVideoMetadata(latestVideo);
+      const videoFile = latestVideo; // Rename for clarity
+      const apiKey = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
 
-      const uploadResult = uploadVideoToYouTube(latestVideo, metadata);
+      // 2. Generate Metadata (Title, Description, Tags) and Blackboard Summary
+      const metadata = generateVideoMetadata(videoFile, apiKey, config.BLACKBOARD_FOLDER_ID);
 
-      if (uploadResult.success) {
-        Logger.log(`Successfully uploaded ${latestVideo.getName()} to YouTube. ID: ${uploadResult.videoId}`);
-
-        // Log to Sheet (URL and settings)
-        const videoUrl = `https://www.youtube.com/watch?v=${uploadResult.videoId}`;
-        logVideoToSheet(videoUrl, config, true, true, metadata.title, metadata.description); // Assuming success if upload worked
-
-        latestVideo.moveTo(destinationFolder);
-        Logger.log(`Moved ${latestVideo.getName()} to the destination folder.`);
-      } else {
-        Logger.log(`Failed to upload ${latestVideo.getName()}.`);
+      // 3. Upload to YouTube with generated metadata
+      const videoId = uploadVideoToYouTube(videoFile, metadata);
+      if (videoId) {
+        const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
+        logVideoToSheet(videoUrl, config, true, true, metadata.title, metadata.description); // Defaulting to not made for kids and subtitles enabled
+        Logger.log(`Successfully processed and uploaded: ${videoFile.getName()}`);
       }
+
+      latestVideo.moveTo(destinationFolder);
+      Logger.log(`Moved ${latestVideo.getName()} to the destination folder.`);
     } else {
       Logger.log("No valid video found to process.");
     }
@@ -113,11 +116,12 @@ function processAndUploadVideos(config) {
 /**
  * Generates video metadata using the Gemini API.
  * @param {GoogleAppsScript.Drive.File} videoFile - The video file.
- * @return {object} The generated metadata object.
+ * @param {string} apiKey - The Gemini API key.
+ * @param {string} blackboardFolderId - Optional folder ID for blackboard summary.
+ * @return {object} Object containing title, description, and tags.
  */
-function generateVideoMetadata(videoFile) {
+function generateVideoMetadata(videoFile, apiKey, blackboardFolderId = null) {
   const fileName = videoFile.getName();
-  const apiKey = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
 
   if (!apiKey) {
     Logger.log("Error: GEMINI_API_KEY not found. Falling back to filename.");
@@ -141,6 +145,11 @@ function generateVideoMetadata(videoFile) {
 
     // 3. Generate Content
     const metadata = generateContentWithFile(fileUri, apiKey, fileName);
+
+    // Generate Blackboard Summary if requested
+    if (blackboardFolderId && metadata && metadata.title) {
+      generateAndSaveBlackboardSummary(fileUri, apiKey, blackboardFolderId, metadata.title);
+    }
 
     // 4. Cleanup
     deleteGeminiFile(fileUri, apiKey);
@@ -238,6 +247,53 @@ function waitForFileProcessing(fileUri, apiKey) {
     Utilities.sleep(2000); // Wait 2 seconds between polls
   }
   return false; // Timeout
+}
+
+function generateAndSaveBlackboardSummary(fileUri, apiKey, folderId, videoTitle) {
+  try {
+    const apiEndpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-preview:generateContent?key=${apiKey}`;
+
+    const prompt = `
+      Basado en este video, crea un resumen conciso que quepa en una pizarra escolar.
+      El resumen debe ser en español, claro, directo y destacar los puntos clave del video.
+      No incluyas un título, solo el resumen.
+    `;
+
+    const requestBody = {
+      contents: [{
+        parts: [
+          { text: prompt },
+          { fileData: { mimeType: "video/mp4", fileUri: fileUri } }
+        ]
+      }]
+    };
+
+    const options = {
+      method: 'post',
+      contentType: 'application/json',
+      payload: JSON.stringify(requestBody),
+      muteHttpExceptions: true
+    };
+
+    const response = UrlFetchApp.fetch(apiEndpoint, options);
+    if (response.getResponseCode() === 200) {
+      const jsonResponse = JSON.parse(response.getContentText());
+      if (jsonResponse.candidates && jsonResponse.candidates[0] && jsonResponse.candidates[0].content && jsonResponse.candidates[0].content.parts && jsonResponse.candidates[0].content.parts[0]) {
+        const summaryText = jsonResponse.candidates[0].content.parts[0].text;
+
+        const folder = DriveApp.getFolderById(folderId);
+        const fileName = `Resumen Pizarra - ${videoTitle}.txt`;
+        folder.createFile(fileName, summaryText, MimeType.PLAIN_TEXT);
+        Logger.log(`Blackboard summary saved for "${videoTitle}" in folder ID: ${folderId}`);
+      } else {
+        Logger.log("Failed to extract summary from Gemini response.");
+      }
+    } else {
+      Logger.log(`Error generating blackboard summary: ${response.getContentText()}`);
+    }
+  } catch (e) {
+    Logger.log(`Exception in generateAndSaveBlackboardSummary: ${e.toString()}`);
+  }
 }
 
 function generateContentWithFile(fileUri, apiKey, fileName) {
