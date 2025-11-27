@@ -161,32 +161,15 @@ function summarizeArticlesGWS() {
   if (!emailSheet) {
     Logger.log(`ERROR: Sheet 'email' not found. Cannot send email.`);
   } else {
-    const bccString = emailSheet.getRange('B2').getDisplayValue().trim();
+    // Default to GWS list, but can be overridden for testing
+    const bccString = getEmailList('GWS'); 
     
     if (bccString) {
-      const allEmails = bccString.split(',');
-      const validEmails = [];
-      const invalidEmails = [];
-      const emailRegex = /.+@.+\..+/; 
-      
-      for (const email of allEmails) {
-        const trimmedEmail = email.trim();
-        if (trimmedEmail) {
-          if (emailRegex.test(trimmedEmail)) {
-            validEmails.push(trimmedEmail);
-          } else {
-            invalidEmails.push(trimmedEmail);
-          }
-        }
-      }
-
-      if (invalidEmails.length > 0) {
-        Logger.log(`Warning: Found and skipped the following invalid email addresses: ${invalidEmails.join(', ')}`);
-      }
+      const validEmails = validateEmails(bccString);
 
       if (validEmails.length > 0) {
         const finalBccList = validEmails.join(',');
-        const emailSent = sendEmailWithSummariesGWS(doc.getId(), finalBccList, dynamicSubject, openingPhraseHtml);
+        const emailSent = sendEmailWithSummariesGWS(doc.getId(), finalBccList);
         
         let successMessage = `SUCCESS: GWS Summaries added to Google Document.`;
         if (emailSent) {
@@ -196,10 +179,10 @@ function summarizeArticlesGWS() {
         }
         Logger.log(successMessage);
       } else {
-        Logger.log('Warning: No valid BCC recipients found after filtering the list from email!B2. Skipping email send.');
+        Logger.log('Warning: No valid BCC recipients found for GWS. Skipping email send.');
       }
     } else {
-      Logger.log('Warning: No BCC recipients found in email!B2. Skipping email send.');
+      Logger.log('Warning: No BCC recipients found for GWS. Skipping email send.');
     }
   }
 
@@ -276,9 +259,48 @@ function getRandomPhraseGWS(spreadsheet) {
 /**
  * Retrieves content, appends a signature, and sends GWS email to a BCC list.
  */
-function sendEmailWithSummariesGWS(documentId, bccRecipients, subject, openingPhraseHtml) {
+/**
+ * Retrieves content, appends a signature, and sends GWS email to a BCC list.
+ * Refactored to use Gemini-generated content and new structure.
+ */
+function sendEmailWithSummariesGWS(documentId, bccRecipients, isTest = false) {
   try {
-    let htmlBody = getHtmlContentFromDocGWS(documentId, openingPhraseHtml);
+    const ss = SpreadsheetApp.openById(GWS_SPREADSHEET_ID);
+
+    // 1. Get Video Info
+    const videoSheet = ss.getSheetByName('GWS Video Overview');
+    let videoLink = '';
+    let videoTitle = 'Noticias GWS';
+    let videoDescription = 'Resumen de noticias de Google Workspace.';
+
+    if (videoSheet) {
+      const lastRow = videoSheet.getLastRow();
+      if (lastRow > 0) {
+        videoLink = videoSheet.getRange('A' + lastRow).getDisplayValue().trim();
+      }
+    }
+
+    // 2. Generate Gemini Phrases
+    const phrases = generateEmailPhrases(videoTitle, videoDescription, 'GWS');
+
+    // 3. Prepare Subject
+    const subject = `[Readiness GWS] - ${videoTitle}`;
+
+    // 4. Build Email Body
+    let htmlBody = `<div style="font-family: Arial, sans-serif; font-size: 11pt; color: #3c4043;">`;
+    htmlBody += `<p>Hola Todos.</p>`;
+    htmlBody += `<p>${phrases.opening}</p>`;
+
+    if (videoLink) {
+      htmlBody += `<p><strong>Resumen de noticias y video:</strong> <a href="${videoLink}">${videoLink}</a></p>`;
+    }
+
+    htmlBody += `<br><p><strong>Para más detalles, aquí están las noticias del blog:</strong></p>`;
+
+    // 5. Add Article Summaries from Doc
+    htmlBody += getHtmlContentFromDocGWS(documentId);
+
+    htmlBody += `<br><p>${phrases.closing}</p>`;
 
     const signatureHtml = `
       <div style="font-family: Arial, sans-serif; font-size: 10pt; color: #5f6368; margin-top: 20px;">
@@ -290,17 +312,49 @@ function sendEmailWithSummariesGWS(documentId, bccRecipients, subject, openingPh
     `;
     
     htmlBody += signatureHtml;
+    htmlBody += `</div>`;
 
     MailApp.sendEmail({
       bcc: bccRecipients,
-      subject: subject,
+      subject: isTest ? `[TEST] ${subject}` : subject,
       htmlBody: htmlBody
     });
-    Logger.log(`Successfully sent GWS email via BCC to: ${bccRecipients}`);
+    Logger.log(`Successfully sent GWS email to: ${bccRecipients}`);
     return true;
   } catch (e) {
     Logger.log(`GWS EMAIL ERROR: Failed to send email: ${e.message}`);
     return false;
+  }
+}
+
+function sendTestEmailGWS() {
+  const ss = SpreadsheetApp.openById(GWS_SPREADSHEET_ID);
+  const today = new Date();
+  const docDate = Utilities.formatDate(today, SpreadsheetApp.getActive().getSpreadsheetTimeZone(), 'yyyy-MM-dd');
+  const docTitle = GWS_DOCUMENT_BASE_TITLE + docDate;
+  const docs = DriveApp.getFilesByName(docTitle);
+  let docId = '';
+  if (docs.hasNext()) {
+    docId = docs.next().getId();
+  } else {
+    const doc = DocumentApp.create(docTitle + ' TEST');
+    doc.getBody().appendParagraph('Noticias Test GWS').setHeading(DocumentApp.ParagraphHeading.HEADING1);
+    doc.getBody().appendParagraph('Título de Prueba GWS').setBold(true).setLinkUrl('https://google.com');
+    doc.getBody().appendParagraph('Resumen de prueba GWS.');
+    docId = doc.getId();
+  }
+
+  const bccString = getEmailList('Testing');
+  if (bccString) {
+    const validEmails = validateEmails(bccString);
+    if (validEmails.length > 0) {
+      sendEmailWithSummariesGWS(docId, validEmails.join(','), true);
+      Logger.log('Test email sent to: ' + validEmails.join(','));
+    } else {
+      Logger.log('No valid emails in Testing list.');
+    }
+  } else {
+    Logger.log('Testing list empty or not found.');
   }
 }
 
@@ -321,7 +375,7 @@ function getHtmlContentFromDocGWS(documentId, openingPhraseHtml) {
         Logger.log("Warning: Sheet 'GWS Video Overview' not found. Cannot include video link.");
     }
 
-    let htmlContent = `<div style="font-family: Arial, sans-serif; font-size: 11pt;">${openingPhraseHtml}`;
+  let htmlContent = ""; // Start with empty, we build it in calling function
 
     if (videoUrl) {
         htmlContent += `<br><br>Y ahora, gracias a NotebookLM, tenemos tambien las noticias en un breve video: <a href="${videoUrl}">${videoUrl}</a><br><br>`;
@@ -371,7 +425,6 @@ function getHtmlContentFromDocGWS(documentId, openingPhraseHtml) {
             htmlContent += "<hr style='border: 0; border-top: 1px solid #eee;'>";
         }
     }
-    htmlContent += "</div>";
     return htmlContent;
 }
 

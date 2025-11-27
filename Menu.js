@@ -19,11 +19,12 @@ function onOpen() {
     .addItem('Summarize GCP Posts', 'summarizeArticlesGCP')
 
     // Add a separator line to visually group the related functions
+    .addItem('Summarize & Email GCP', 'summarizeArticlesGCP')
+    .addItem('Save Draft GCP', 'saveEmailAsDraftGCP')
+    .addItem('Send Test Email GCP', 'sendTestEmailGCP')
     .addSeparator()
-
-    // --- GWS Blog Functions ---
-    .addItem('Get GWS Blog News', 'getLatestGwsPosts')
-    .addItem('Summarize GWS Posts', 'summarizeArticlesGWS')
+    .addItem('Summarize & Email GWS', 'summarizeArticlesGWS')
+    .addItem('Send Test Email GWS', 'sendTestEmailGWS')
 
     .addSeparator()
     // --- YouTube Functions ---

@@ -174,31 +174,14 @@ function summarizeArticlesGCP() {
   if (!emailSheet) {
     Logger.log(`ERROR: Sheet 'email' not found. Cannot send email.`);
   } else {
-    const bccString = emailSheet.getRange('B3').getDisplayValue().trim();
+    // Default to GCP list, but can be overridden for testing
+    const bccString = getEmailList('GCP'); 
     if (bccString) {
-      const allEmails = bccString.split(',');
-      const validEmails = [];
-      const invalidEmails = [];
-      const emailRegex = /.+@.+\..+/; 
-      
-      for (const email of allEmails) {
-        const trimmedEmail = email.trim();
-        if (trimmedEmail) {
-          if (emailRegex.test(trimmedEmail)) {
-            validEmails.push(trimmedEmail);
-          } else {
-            invalidEmails.push(trimmedEmail);
-          }
-        }
-      }
-
-      if (invalidEmails.length > 0) {
-        Logger.log(`Warning: Found and skipped the following invalid email addresses: ${invalidEmails.join(', ')}`);
-      }
+      const validEmails = validateEmails(bccString);
 
       if (validEmails.length > 0) {
         const finalBccList = validEmails.join(',');
-        const emailSent = sendEmailWithSummariesGCP(doc.getId(), finalBccList, dynamicSubject, openingPhraseHtml);
+        const emailSent = sendEmailWithSummariesGCP(doc.getId(), finalBccList);
         
         let successMessage = `SUCCESS: Summaries added to Google Document.`;
         if (emailSent) {
@@ -208,10 +191,10 @@ function summarizeArticlesGCP() {
         }
         Logger.log(successMessage);
       } else {
-        Logger.log('Warning: No valid BCC recipients found after filtering the list from email!B3. Skipping email send.');
+        Logger.log('Warning: No valid BCC recipients found for GCP. Skipping email send.');
       }
     } else {
-      Logger.log('Warning: No BCC recipients found in email!B3. Skipping email send.');
+      Logger.log('Warning: No BCC recipients found for GCP. Skipping email send.');
     }
   }
 
@@ -289,33 +272,55 @@ function getRandomPhraseGCP(spreadsheet) {
  * Retrieves content, appends a signature, and sends email to a BCC list.
  * THIS FUNCTION HAS BEEN MODIFIED to include the video link.
  */
-function sendEmailWithSummariesGCP(documentId, bccRecipients, subject, openingPhraseHtml) {
+/**
+ * Retrieves content, appends a signature, and sends email to a BCC list.
+ * Refactored to use Gemini-generated content and new structure.
+ */
+function sendEmailWithSummariesGCP(documentId, bccRecipients, isTest = false) {
   try {
-    // --- START: MODIFIED SECTION ---
-    // 1. Get the YouTube link from the "GCP Video Overview" sheet
     const ss = SpreadsheetApp.openById(GCP_SPREADSHEET_ID);
+
+    // 1. Get Video Info
     const videoSheet = ss.getSheetByName('GCP Video Overview');
     let videoLink = '';
+    let videoTitle = 'Noticias GCP';
+    let videoDescription = 'Resumen de noticias de Google Cloud.';
+
     if (videoSheet) {
       const lastRow = videoSheet.getLastRow();
       if (lastRow > 0) {
         videoLink = videoSheet.getRange('A' + lastRow).getDisplayValue().trim();
+        // We don't have title/description in the sheet anymore, but we can use fallback or try to get it from YouTube if needed.
+        // For now, we will rely on Gemini to generate phrases based on what we have, or just use default.
       }
     }
 
-    // 2. Build the email body piece by piece
-    let htmlBody = `<div style="font-family: Arial, sans-serif; font-size: 11pt;">`;
-    htmlBody += openingPhraseHtml;
-    htmlBody += `<br><br>`;
+    // 2. Generate Gemini Phrases
+    const phrases = generateEmailPhrases(videoTitle, videoDescription, 'GCP');
 
-    // 3. Add the new video paragraph if a link was found
+    // 3. Prepare Subject
+    const subject = `[Readiness GCP] - ${videoTitle}`;
+
+    // 4. Build Email Body
+    let htmlBody = `<div style="font-family: Arial, sans-serif; font-size: 11pt; color: #3c4043;">`;
+    htmlBody += `<p>Hola Todos.</p>`;
+    htmlBody += `<p>${phrases.opening}</p>`;
+
     if (videoLink) {
-      htmlBody += `<p style="margin: 0 0 10px 0;">Y ahora, gracias a NotebookLM, tenemos tambien las noticias en un breve video: <a href="${videoLink}" style="color: #1a73e8; text-decoration: none;">${videoLink}</a></p>`;
+      htmlBody += `<p><strong>Resumen de noticias y video:</strong> <a href="${videoLink}">${videoLink}</a></p>`;
     }
     
-    // 4. Add the article summaries from the Google Doc
+    // Add Video Description if available (Optional, since we don't store it now. 
+    // If we want it, we'd need to fetch it from YouTube or store it. 
+    // Given current state, we skip or use a placeholder).
+    // Let's assume we want to encourage clicking the link.
+
+    htmlBody += `<br><p><strong>Para más detalles, aquí están las noticias del blog:</strong></p>`;
+
+    // 5. Add Article Summaries from Doc
     htmlBody += convertDocToHtmlGCP(documentId);
-    // --- END: MODIFIED SECTION ---
+
+    htmlBody += `<br><p>${phrases.closing}</p>`;
 
     const signatureHtml = `
       <div style="font-family: Arial, sans-serif; font-size: 10pt; color: #5f6368; margin-top: 20px;">
@@ -327,18 +332,52 @@ function sendEmailWithSummariesGCP(documentId, bccRecipients, subject, openingPh
     `;
     
     htmlBody += signatureHtml;
-    htmlBody += `</div>`; // Close the main div
+    htmlBody += `</div>`;
 
     MailApp.sendEmail({
       bcc: bccRecipients,
-      subject: subject,
+      subject: isTest ? `[TEST] ${subject}` : subject,
       htmlBody: htmlBody
     });
-    Logger.log(`Successfully sent email via BCC to: ${bccRecipients}`);
+    Logger.log(`Successfully sent GCP email to: ${bccRecipients}`);
     return true;
   } catch (e) {
     Logger.log(`EMAIL ERROR: Failed to send email: ${e.message}`);
     return false;
+  }
+}
+
+function sendTestEmailGCP() {
+  const ss = SpreadsheetApp.openById(GCP_SPREADSHEET_ID);
+  // We need a doc ID. We can use the last created one or create a dummy.
+  // For testing, let's just try to find the last created GCP doc.
+  const today = new Date();
+  const docDate = Utilities.formatDate(today, SpreadsheetApp.getActive().getSpreadsheetTimeZone(), 'yyyy-MM-dd');
+  const docTitle = GCP_DOCUMENT_BASE_TITLE + docDate;
+  const docs = DriveApp.getFilesByName(docTitle);
+  let docId = '';
+  if (docs.hasNext()) {
+    docId = docs.next().getId();
+  } else {
+    // Create a dummy doc for testing if none exists for today
+    const doc = DocumentApp.create(docTitle + ' TEST');
+    doc.getBody().appendParagraph('Noticias Test').setHeading(DocumentApp.ParagraphHeading.HEADING1);
+    doc.getBody().appendParagraph('Título de Prueba').setBold(true).setLinkUrl('https://google.com');
+    doc.getBody().appendParagraph('Resumen de prueba.');
+    docId = doc.getId();
+  }
+
+  const bccString = getEmailList('Testing');
+  if (bccString) {
+    const validEmails = validateEmails(bccString);
+    if (validEmails.length > 0) {
+      sendEmailWithSummariesGCP(docId, validEmails.join(','), true);
+      Logger.log('Test email sent to: ' + validEmails.join(','));
+    } else {
+      Logger.log('No valid emails in Testing list.');
+    }
+  } else {
+    Logger.log('Testing list empty or not found.');
   }
 }
 
