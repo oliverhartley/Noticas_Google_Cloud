@@ -286,9 +286,6 @@ function generateAndSaveBlackboardSummary(fileUri, apiKey, folderId, videoTitle)
         const textFileName = `Resumen Pizarra - ${videoTitle}.txt`;
         folder.createFile(textFileName, summaryText, MimeType.PLAIN_TEXT);
         Logger.log(`Text summary saved to ${textFileName}`);
-
-        // Try Image Generation (Experimental)
-        generateAndSaveBlackboardImage(summaryText, apiKey, folderId, videoTitle);
       } else {
         Logger.log("Failed to extract summary from Gemini response.");
       }
@@ -300,45 +297,6 @@ function generateAndSaveBlackboardSummary(fileUri, apiKey, folderId, videoTitle)
   }
 }
 
-/**
- * Generates an image of a blackboard with the summary text using Gemini (Experimental).
- */
-function generateAndSaveBlackboardImage(summaryText, apiKey, folderId, videoTitle) {
-  try {
-    // Using the model name provided by the user (Experimental)
-    const apiEndpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateImages?key=${apiKey}`;
-
-    const prompt = `Create a realistic image of a school blackboard with the following text written on it in white chalk. The text should be legible and fit on the board. Text: ${summaryText}`;
-
-    const requestBody = {
-      prompt: prompt
-    };
-
-    const options = {
-      method: 'post',
-      contentType: 'application/json',
-      payload: JSON.stringify(requestBody),
-      muteHttpExceptions: true
-    };
-
-    const response = UrlFetchApp.fetch(apiEndpoint, options);
-    if (response.getResponseCode() === 200) {
-      const jsonResponse = JSON.parse(response.getContentText());
-      if (jsonResponse.images && jsonResponse.images[0] && jsonResponse.images[0].base64) {
-        const imageBlob = Utilities.newBlob(Utilities.base64Decode(jsonResponse.images[0].base64), 'image/png', `Resumen Pizarra - ${videoTitle}.png`);
-        const folder = DriveApp.getFolderById(folderId);
-        folder.createFile(imageBlob);
-        Logger.log(`Blackboard image saved for "${videoTitle}" in folder ID: ${folderId}`);
-      } else {
-        Logger.log("Failed to extract image from Gemini response. Response: " + response.getContentText());
-      }
-    } else {
-      Logger.log(`Error generating blackboard image (Expected if model doesn't exist): ${response.getResponseCode()} - ${response.getContentText()}`);
-    }
-  } catch (e) {
-    Logger.log(`Exception in generateAndSaveBlackboardImage: ${e.toString()}`);
-  }
-}
 
 function generateContentWithFile(fileUri, apiKey, fileName) {
   const apiEndpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-preview:generateContent?key=${apiKey}`;
