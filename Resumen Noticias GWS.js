@@ -368,25 +368,7 @@ function sendTestEmailGWS() {
  * Helper function to parse a GWS Google Doc and convert its content to an HTML string.
  */
 function getHtmlContentFromDocGWS(documentId, openingPhraseHtml) {
-    const ss = SpreadsheetApp.openById(GWS_SPREADSHEET_ID);
-    const videoSheet = ss.getSheetByName('GWS Video Overview');
-    let videoUrl = '';
-
-    if (videoSheet) {
-        const lastRow = videoSheet.getLastRow();
-        if (lastRow > 0) {
-            videoUrl = videoSheet.getRange('A' + lastRow).getDisplayValue().trim();
-        }
-    } else {
-        Logger.log("Warning: Sheet 'GWS Video Overview' not found. Cannot include video link.");
-    }
-
   let htmlContent = ""; // Start with empty, we build it in calling function
-
-    if (videoUrl) {
-        htmlContent += `<br><br>Y ahora, gracias a NotebookLM, tenemos tambien las noticias en un breve video: <a href="${videoUrl}">${videoUrl}</a><br><br>`;
-        Logger.log(`Included video link in email: ${videoUrl}`);
-    }
 
     const doc = DocumentApp.openById(documentId);
     const body = doc.getBody();
