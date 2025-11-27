@@ -300,7 +300,8 @@ function sendEmailWithSummariesGWS(documentId, bccRecipients, isTest = false) {
       htmlBody += `<p><strong>Resumen de noticias:</strong> <a href="${videoLink}">Ver video</a></p>`;
       htmlBody += `<p><strong style="color: #34A853;">Suscríbete a nuestro canal de YouTube y mantente siempre un paso adelante en tecnología.</strong></p>`;
       if (videoDescription) {
-        const linkifiedDescription = linkifyTimestamps(videoDescription, videoLink);
+        let cleanDescription = removeHashtags(videoDescription);
+        const linkifiedDescription = linkifyTimestamps(cleanDescription, videoLink);
         htmlBody += `<p>${linkifiedDescription.replace(/\n/g, '<br>')}</p>`;
       }
     }

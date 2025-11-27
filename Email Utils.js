@@ -145,3 +145,13 @@ function linkifyTimestamps(text, videoUrl) {
     return `${prefix}<a href="${link}" style="color: #1a73e8; text-decoration: none;">${timestamp}</a>`;
   });
 }
+
+/**
+ * Removes hashtags from the text.
+ * @param {string} text - The text containing hashtags.
+ * @return {string} The text without hashtags.
+ */
+function removeHashtags(text) {
+  if (!text) return text;
+  return text.replace(/#\w+/g, '').trim();
+}
