@@ -307,7 +307,8 @@ function sendEmailWithSummariesGCP(documentId, bccRecipients, isTest = false) {
     htmlBody += `<p>${phrases.opening}</p>`;
 
     if (videoLink) {
-      htmlBody += `<p><strong>Resumen de noticias y video:</strong> <a href="${videoLink}">Ver video</a></p>`;
+      htmlBody += `<p><strong>Resumen de noticias:</strong> <a href="${videoLink}">Ver video</a></p>`;
+      htmlBody += `<p><em>${phrases.cta}</em></p>`;
     }
 
     htmlBody += `<br><p><strong>Para más detalles, aquí están las noticias del blog:</strong></p>`;

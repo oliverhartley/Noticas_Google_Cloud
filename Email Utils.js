@@ -14,7 +14,8 @@ function generateEmailPhrases(videoTitle, videoDescription, type) {
   if (!apiKey) {
     return {
       opening: `Hola todos, aquí están las últimas noticias de ${type === 'GCP' ? 'Google Cloud' : 'Google Workspace'}.`,
-      closing: 'Pronto más noticias.'
+      closing: 'Pronto más noticias.',
+      cta: '¡Suscríbete a nuestro canal para no perderte nada!'
     };
   }
 
@@ -36,8 +37,9 @@ function generateEmailPhrases(videoTitle, videoDescription, type) {
     Instrucciones:
     1. Genera una "frase de apertura" casual y amigable que mencione que estas son las noticias de hoy (${dateStr}). Usa el contexto del video para hacerla relevante y diferente cada vez.
     2. Genera una "frase de cierre" casual, similar a "Pronto más noticias" pero con variaciones.
+    3. Genera una "frase de llamada a la acción" (cta) corta y atractiva para invitar a suscribirse al canal de YouTube.
     
-    Responde ÚNICAMENTE con un objeto JSON válido con las claves "opening" y "closing". No incluyas markdown ni texto adicional.
+    Responde ÚNICAMENTE con un objeto JSON válido con las claves "opening", "closing" y "cta". No incluyas markdown ni texto adicional.
   `;
 
   const payload = {
@@ -67,7 +69,8 @@ function generateEmailPhrases(videoTitle, videoDescription, type) {
   // Fallback
   return {
     opening: `Hola todos, aquí están las últimas noticias de ${platform} para hoy ${dateStr}.`,
-    closing: 'Pronto más noticias.'
+    closing: 'Pronto más noticias.',
+    cta: '¡Suscríbete a nuestro canal!'
   };
 }
 
