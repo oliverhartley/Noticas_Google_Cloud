@@ -292,7 +292,7 @@ function sendEmailWithSummariesGWS(documentId, bccRecipients, isTest = false) {
     htmlBody += `<p>${phrases.opening}</p>`;
 
     if (videoLink) {
-      htmlBody += `<p><strong>Resumen de noticias y video:</strong> <a href="${videoLink}">${videoLink}</a></p>`;
+      htmlBody += `<p><strong>Resumen de noticias y video:</strong> <a href="${videoLink}">Ver video</a></p>`;
     }
 
     htmlBody += `<br><p><strong>Para más detalles, aquí están las noticias del blog:</strong></p>`;
@@ -337,11 +337,17 @@ function sendTestEmailGWS() {
   if (docs.hasNext()) {
     docId = docs.next().getId();
   } else {
-    const doc = DocumentApp.create(docTitle + ' TEST');
-    doc.getBody().appendParagraph('Noticias Test GWS').setHeading(DocumentApp.ParagraphHeading.HEADING1);
-    doc.getBody().appendParagraph('Título de Prueba GWS').setBold(true).setLinkUrl('https://google.com');
-    doc.getBody().appendParagraph('Resumen de prueba GWS.');
-    docId = doc.getId();
+    // Try to find the most recent GWS doc if today's doesn't exist
+    const searchDocs = DriveApp.searchFiles(`name contains '${GWS_DOCUMENT_BASE_TITLE}' and mimeType = 'application/vnd.google-apps.document'`);
+    if (searchDocs.hasNext()) {
+      docId = searchDocs.next().getId();
+    } else {
+      const doc = DocumentApp.create(docTitle + ' TEST');
+      doc.getBody().appendParagraph('Noticias Test GWS').setHeading(DocumentApp.ParagraphHeading.HEADING1);
+      doc.getBody().appendParagraph('Título de Prueba GWS').setBold(true).setLinkUrl('https://google.com');
+      doc.getBody().appendParagraph('Resumen de prueba GWS.');
+      docId = doc.getId();
+    }
   }
 
   const bccString = getEmailList('Testing');

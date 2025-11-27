@@ -307,13 +307,8 @@ function sendEmailWithSummariesGCP(documentId, bccRecipients, isTest = false) {
     htmlBody += `<p>${phrases.opening}</p>`;
 
     if (videoLink) {
-      htmlBody += `<p><strong>Resumen de noticias y video:</strong> <a href="${videoLink}">${videoLink}</a></p>`;
+      htmlBody += `<p><strong>Resumen de noticias y video:</strong> <a href="${videoLink}">Ver video</a></p>`;
     }
-    
-    // Add Video Description if available (Optional, since we don't store it now. 
-    // If we want it, we'd need to fetch it from YouTube or store it. 
-    // Given current state, we skip or use a placeholder).
-    // Let's assume we want to encourage clicking the link.
 
     htmlBody += `<br><p><strong>Para más detalles, aquí están las noticias del blog:</strong></p>`;
 
@@ -359,12 +354,20 @@ function sendTestEmailGCP() {
   if (docs.hasNext()) {
     docId = docs.next().getId();
   } else {
-    // Create a dummy doc for testing if none exists for today
-    const doc = DocumentApp.create(docTitle + ' TEST');
-    doc.getBody().appendParagraph('Noticias Test').setHeading(DocumentApp.ParagraphHeading.HEADING1);
-    doc.getBody().appendParagraph('Título de Prueba').setBold(true).setLinkUrl('https://google.com');
-    doc.getBody().appendParagraph('Resumen de prueba.');
-    docId = doc.getId();
+    // Try to find the most recent GCP doc if today's doesn't exist
+    const files = DriveApp.getFilesByName(GCP_DOCUMENT_BASE_TITLE.trim()); // This might not work well with partial names
+    // Better approach: search for files starting with base title
+    const searchDocs = DriveApp.searchFiles(`name contains '${GCP_DOCUMENT_BASE_TITLE}' and mimeType = 'application/vnd.google-apps.document'`);
+    if (searchDocs.hasNext()) {
+      docId = searchDocs.next().getId();
+    } else {
+      // Create a dummy doc for testing if none exists
+      const doc = DocumentApp.create(docTitle + ' TEST');
+      doc.getBody().appendParagraph('Noticias Test').setHeading(DocumentApp.ParagraphHeading.HEADING1);
+      doc.getBody().appendParagraph('Título de Prueba').setBold(true).setLinkUrl('https://google.com');
+      doc.getBody().appendParagraph('Resumen de prueba.');
+      docId = doc.getId();
+    }
   }
 
   const bccString = getEmailList('Testing');
