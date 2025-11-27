@@ -290,8 +290,9 @@ function sendEmailWithSummariesGCP(documentId, bccRecipients, isTest = false) {
       const lastRow = videoSheet.getLastRow();
       if (lastRow > 0) {
         videoLink = videoSheet.getRange('A' + lastRow).getDisplayValue().trim();
-        // We don't have title/description in the sheet anymore, but we can use fallback or try to get it from YouTube if needed.
-        // For now, we will rely on Gemini to generate phrases based on what we have, or just use default.
+        if (videoLink) {
+          videoTitle = getYouTubeVideoTitle(videoLink) || videoTitle;
+        }
       }
     }
 

@@ -277,6 +277,9 @@ function sendEmailWithSummariesGWS(documentId, bccRecipients, isTest = false) {
       const lastRow = videoSheet.getLastRow();
       if (lastRow > 0) {
         videoLink = videoSheet.getRange('A' + lastRow).getDisplayValue().trim();
+        if (videoLink) {
+          videoTitle = getYouTubeVideoTitle(videoLink) || videoTitle;
+        }
       }
     }
 
@@ -326,6 +329,19 @@ function sendEmailWithSummariesGWS(documentId, bccRecipients, isTest = false) {
     Logger.log(`GWS EMAIL ERROR: Failed to send email: ${e.message}`);
     return false;
   }
+}
+
+function getYouTubeVideoTitle(videoUrl) {
+  try {
+    const videoId = videoUrl.split('v=')[1].split('&')[0];
+    const response = YouTube.Videos.list('snippet', { id: videoId });
+    if (response.items && response.items.length > 0) {
+      return response.items[0].snippet.title;
+    }
+  } catch (e) {
+    Logger.log(`Error fetching YouTube title: ${e.toString()}`);
+  }
+  return null;
 }
 
 function sendTestEmailGWS() {
