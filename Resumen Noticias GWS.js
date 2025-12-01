@@ -353,8 +353,13 @@ function sendTestEmailGWS() {
   } else {
     // Try to find the most recent GWS doc if today's doesn't exist
     const searchDocs = DriveApp.searchFiles(`name contains '${GWS_DOCUMENT_BASE_TITLE}' and mimeType = 'application/vnd.google-apps.document'`);
-    if (searchDocs.hasNext()) {
-      docId = searchDocs.next().getId();
+    let files = [];
+    while (searchDocs.hasNext()) {
+      files.push(searchDocs.next());
+    }
+    if (files.length > 0) {
+      files.sort((a, b) => b.getLastUpdated().getTime() - a.getLastUpdated().getTime());
+      docId = files[0].getId();
     } else {
       const doc = DocumentApp.create(docTitle + ' TEST');
       doc.getBody().appendParagraph('Noticias Test GWS').setHeading(DocumentApp.ParagraphHeading.HEADING1);

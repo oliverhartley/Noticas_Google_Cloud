@@ -364,11 +364,15 @@ function sendTestEmailGCP() {
     docId = docs.next().getId();
   } else {
     // Try to find the most recent GCP doc if today's doesn't exist
-    const files = DriveApp.getFilesByName(GCP_DOCUMENT_BASE_TITLE.trim()); // This might not work well with partial names
-    // Better approach: search for files starting with base title
+    // Better approach: Sort search results by date to find most recent doc.
     const searchDocs = DriveApp.searchFiles(`name contains '${GCP_DOCUMENT_BASE_TITLE}' and mimeType = 'application/vnd.google-apps.document'`);
-    if (searchDocs.hasNext()) {
-      docId = searchDocs.next().getId();
+    let files = [];
+    while (searchDocs.hasNext()) {
+      files.push(searchDocs.next());
+    }
+    if (files.length > 0) {
+      files.sort((a, b) => b.getLastUpdated().getTime() - a.getLastUpdated().getTime());
+      docId = files[0].getId();
     } else {
       // Create a dummy doc for testing if none exists
       const doc = DocumentApp.create(docTitle + ' TEST');
