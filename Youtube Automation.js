@@ -258,11 +258,15 @@ function waitForFileProcessing(fileUri, apiKey) {
 }
 
 function generateAndSaveBlackboardSummary(fileUri, apiKey, folderId, videoTitle) {
-  const models = ['gemini-3-pro-preview', 'gemini-1.5-pro', 'gemini-1.5-flash'];
+  const models = [
+    { name: 'gemini-3-pro-preview', version: 'v1beta' },
+    { name: 'gemini-1.5-pro', version: 'v1' },
+    { name: 'gemini-1.5-flash', version: 'v1' }
+  ];
 
   for (const model of models) {
     try {
-      const apiEndpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+      const apiEndpoint = `https://generativelanguage.googleapis.com/${model.version}/models/${model.name}:generateContent?key=${apiKey}`;
 
       const prompt = `
         Basado en este video, crea un resumen conciso que quepa en una pizarra escolar.
@@ -295,14 +299,14 @@ function generateAndSaveBlackboardSummary(fileUri, apiKey, folderId, videoTitle)
           const folder = DriveApp.getFolderById(folderId);
           const fileName = `Resumen Pizarra - ${videoTitle}.txt`;
           folder.createFile(fileName, summaryText, MimeType.PLAIN_TEXT);
-          Logger.log(`Blackboard summary saved using model ${model} for "${videoTitle}" in folder ID: ${folderId}`);
+          Logger.log(`Blackboard summary saved using model ${model.name} for "${videoTitle}" in folder ID: ${folderId}`);
           return; // Success, exit function
         }
       } else {
-        Logger.log(`Model ${model} failed for blackboard summary: ${response.getResponseCode()} - ${response.getContentText()}`);
+        Logger.log(`Model ${model.name} failed for blackboard summary: ${response.getResponseCode()} - ${response.getContentText()}`);
       }
     } catch (e) {
-      Logger.log(`Exception with model ${model} in generateAndSaveBlackboardSummary: ${e.toString()}`);
+      Logger.log(`Exception with model ${model.name} in generateAndSaveBlackboardSummary: ${e.toString()}`);
     }
   }
   Logger.log("All models failed for blackboard summary.");
@@ -310,7 +314,11 @@ function generateAndSaveBlackboardSummary(fileUri, apiKey, folderId, videoTitle)
 
 
 function generateContentWithFile(fileUri, apiKey, fileName) {
-  const models = ['gemini-3-pro-preview', 'gemini-1.5-pro', 'gemini-1.5-flash'];
+  const models = [
+    { name: 'gemini-3-pro-preview', version: 'v1beta' },
+    { name: 'gemini-1.5-pro', version: 'v1' },
+    { name: 'gemini-1.5-flash', version: 'v1' }
+  ];
 
   const prompt = `
     As an expert YouTube content strategist specializing in SEO for a tech audience, analyze the following video.
@@ -342,7 +350,7 @@ function generateContentWithFile(fileUri, apiKey, fileName) {
 
   for (const model of models) {
     try {
-      const apiEndpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+      const apiEndpoint = `https://generativelanguage.googleapis.com/${model.version}/models/${model.name}:generateContent?key=${apiKey}`;
       const options = {
         method: 'post',
         contentType: 'application/json',
@@ -358,9 +366,9 @@ function generateContentWithFile(fileUri, apiKey, fileName) {
           if (response.getResponseCode() === 200) {
             break; // Success
           }
-          Logger.log(`Model ${model} failed (HTTP ${response.getResponseCode()}). Retrying...`);
+          Logger.log(`Model ${model.name} failed (HTTP ${response.getResponseCode()}). Retrying...`);
         } catch (e) {
-          Logger.log(`Model ${model} error: ${e.toString()}. Retrying...`);
+          Logger.log(`Model ${model.name} error: ${e.toString()}. Retrying...`);
         }
         retries--;
         Utilities.sleep(2000); // Wait 2 seconds before retry
@@ -370,14 +378,14 @@ function generateContentWithFile(fileUri, apiKey, fileName) {
         const jsonResponse = JSON.parse(response.getContentText());
         if (jsonResponse.candidates && jsonResponse.candidates[0] && jsonResponse.candidates[0].content && jsonResponse.candidates[0].content.parts && jsonResponse.candidates[0].content.parts[0]) {
           const textResponse = jsonResponse.candidates[0].content.parts[0].text;
-          Logger.log(`Successfully used model: ${model}`);
+          Logger.log(`Successfully used model: ${model.name}`);
           return JSON.parse(textResponse);
         }
       } else {
-        Logger.log(`Model ${model} failed after retries.`);
+        Logger.log(`Model ${model.name} failed after retries.`);
       }
     } catch (e) {
-      Logger.log(`Exception with model ${model}: ${e.toString()}`);
+      Logger.log(`Exception with model ${model.name}: ${e.toString()}`);
     }
   }
   throw new Error("All models failed for metadata generation.");
