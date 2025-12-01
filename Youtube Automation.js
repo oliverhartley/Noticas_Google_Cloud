@@ -232,19 +232,27 @@ function waitForFileProcessing(fileUri, apiKey) {
   const fileId = fileUri.split('/').pop();
   const getUrl = `https://generativelanguage.googleapis.com/v1beta/files/${fileId}?key=${apiKey}`;
 
-  for (let i = 0; i < 10; i++) { // Poll up to 10 times
-    const response = UrlFetchApp.fetch(getUrl, { muteHttpExceptions: true });
+  // Wait up to ~2.5 minutes (30 retries * 5 seconds)
+  for (let i = 0; i < 30; i++) {
+    const response = UrlFetchApp.fetch(getUrl, {
+      method: 'get',
+      muteHttpExceptions: true
+    });
+
     if (response.getResponseCode() === 200) {
-      const fileInfo = JSON.parse(response.getContentText());
-      if (fileInfo.state === 'ACTIVE') {
+      const fileState = JSON.parse(response.getContentText());
+      Logger.log(`File state: ${fileState.state}. Waiting...`);
+      if (fileState.state === 'ACTIVE') {
         return true;
-      } else if (fileInfo.state === 'FAILED') {
+      }
+      if (fileState.state === 'FAILED') {
         Logger.log("File processing failed on Gemini side.");
         return false;
       }
-      Logger.log(`File state: ${fileInfo.state}. Waiting...`);
+    } else {
+      Logger.log(`Error checking file status (HTTP ${response.getResponseCode()}): ${response.getContentText()}`);
     }
-    Utilities.sleep(2000); // Wait 2 seconds between polls
+    Utilities.sleep(5000); // Wait 5 seconds between checks
   }
   return false; // Timeout
 }
