@@ -258,56 +258,60 @@ function waitForFileProcessing(fileUri, apiKey) {
 }
 
 function generateAndSaveBlackboardSummary(fileUri, apiKey, folderId, videoTitle) {
-  try {
-    const apiEndpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-preview:generateContent?key=${apiKey}`;
+  const models = ['gemini-3-pro-preview', 'gemini-1.5-pro', 'gemini-1.5-flash'];
 
-    const prompt = `
-      Basado en este video, crea un resumen conciso que quepa en una pizarra escolar.
-      El resumen debe ser en español, claro, directo y destacar los puntos clave del video.
-      No incluyas un título, solo el resumen.
-    `;
+  for (const model of models) {
+    try {
+      const apiEndpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
-    const requestBody = {
-      contents: [{
-        parts: [
-          { text: prompt },
-          { fileData: { mimeType: "video/mp4", fileUri: fileUri } }
-        ]
-      }]
-    };
+      const prompt = `
+        Basado en este video, crea un resumen conciso que quepa en una pizarra escolar.
+        El resumen debe ser en español, claro, directo y destacar los puntos clave del video.
+        No incluyas un título, solo el resumen.
+      `;
 
-    const options = {
-      method: 'post',
-      contentType: 'application/json',
-      payload: JSON.stringify(requestBody),
-      muteHttpExceptions: true
-    };
+      const requestBody = {
+        contents: [{
+          parts: [
+            { text: prompt },
+            { fileData: { mimeType: "video/mp4", fileUri: fileUri } }
+          ]
+        }]
+      };
 
-    const response = UrlFetchApp.fetch(apiEndpoint, options);
-    if (response.getResponseCode() === 200) {
-      const jsonResponse = JSON.parse(response.getContentText());
-      if (jsonResponse.candidates && jsonResponse.candidates[0] && jsonResponse.candidates[0].content && jsonResponse.candidates[0].content.parts && jsonResponse.candidates[0].content.parts[0]) {
-        const summaryText = jsonResponse.candidates[0].content.parts[0].text;
+      const options = {
+        method: 'post',
+        contentType: 'application/json',
+        payload: JSON.stringify(requestBody),
+        muteHttpExceptions: true
+      };
 
-        // Save text summary
-        const folder = DriveApp.getFolderById(folderId);
-        const textFileName = `Resumen Pizarra - ${videoTitle}.txt`;
-        folder.createFile(textFileName, summaryText, MimeType.PLAIN_TEXT);
-        Logger.log(`Text summary saved to ${textFileName}`);
+      const response = UrlFetchApp.fetch(apiEndpoint, options);
+      if (response.getResponseCode() === 200) {
+        const jsonResponse = JSON.parse(response.getContentText());
+        if (jsonResponse.candidates && jsonResponse.candidates[0] && jsonResponse.candidates[0].content && jsonResponse.candidates[0].content.parts && jsonResponse.candidates[0].content.parts[0]) {
+          const summaryText = jsonResponse.candidates[0].content.parts[0].text;
+
+          const folder = DriveApp.getFolderById(folderId);
+          const fileName = `Resumen Pizarra - ${videoTitle}.txt`;
+          folder.createFile(fileName, summaryText, MimeType.PLAIN_TEXT);
+          Logger.log(`Blackboard summary saved using model ${model} for "${videoTitle}" in folder ID: ${folderId}`);
+          return; // Success, exit function
+        }
       } else {
-        Logger.log("Failed to extract summary from Gemini response.");
+        Logger.log(`Model ${model} failed for blackboard summary: ${response.getResponseCode()} - ${response.getContentText()}`);
       }
-    } else {
-      Logger.log(`Error generating blackboard summary: ${response.getContentText()}`);
+    } catch (e) {
+      Logger.log(`Exception with model ${model} in generateAndSaveBlackboardSummary: ${e.toString()}`);
     }
-  } catch (e) {
-    Logger.log(`Exception in generateAndSaveBlackboardSummary: ${e.toString()}`);
   }
+  Logger.log("All models failed for blackboard summary.");
 }
 
 
 function generateContentWithFile(fileUri, apiKey, fileName) {
-  const apiEndpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-preview:generateContent?key=${apiKey}`;
+  const models = ['gemini-3-pro-preview', 'gemini-1.5-pro', 'gemini-1.5-flash'];
+
   const prompt = `
     As an expert YouTube content strategist specializing in SEO for a tech audience, analyze the following video.
     Based on the video content, generate the following information in SPANISH. Your response MUST be a valid JSON object with the following keys: "title", "description", "tags".
@@ -326,26 +330,57 @@ function generateContentWithFile(fileUri, apiKey, fileName) {
         { text: prompt },
         { fileData: { mimeType: "video/mp4", fileUri: fileUri } }
       ]
-    }]
+    }],
+    generationConfig: {
+      temperature: 0.7,
+      topK: 40,
+      topP: 0.95,
+      maxOutputTokens: 2048,
+      responseMimeType: "application/json"
+    }
   };
 
-  const options = {
-    method: 'post',
-    contentType: 'application/json',
-    payload: JSON.stringify(requestBody),
-    muteHttpExceptions: true
-  };
+  for (const model of models) {
+    try {
+      const apiEndpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+      const options = {
+        method: 'post',
+        contentType: 'application/json',
+        payload: JSON.stringify(requestBody),
+        muteHttpExceptions: true
+      };
 
-  const response = UrlFetchApp.fetch(apiEndpoint, options);
-  if (response.getResponseCode() === 200) {
-    const jsonResponse = JSON.parse(response.getContentText());
-    if (jsonResponse.candidates && jsonResponse.candidates[0] && jsonResponse.candidates[0].content && jsonResponse.candidates[0].content.parts && jsonResponse.candidates[0].content.parts[0]) {
-      const contentText = jsonResponse.candidates[0].content.parts[0].text;
-      const cleanedJsonString = contentText.replace(/```json/g, "").replace(/```/g, "").trim();
-      return JSON.parse(cleanedJsonString);
+      let response;
+      let retries = 3;
+      while (retries > 0) {
+        try {
+          response = UrlFetchApp.fetch(apiEndpoint, options);
+          if (response.getResponseCode() === 200) {
+            break; // Success
+          }
+          Logger.log(`Model ${model} failed (HTTP ${response.getResponseCode()}). Retrying...`);
+        } catch (e) {
+          Logger.log(`Model ${model} error: ${e.toString()}. Retrying...`);
+        }
+        retries--;
+        Utilities.sleep(2000); // Wait 2 seconds before retry
+      }
+
+      if (response && response.getResponseCode() === 200) {
+        const jsonResponse = JSON.parse(response.getContentText());
+        if (jsonResponse.candidates && jsonResponse.candidates[0] && jsonResponse.candidates[0].content && jsonResponse.candidates[0].content.parts && jsonResponse.candidates[0].content.parts[0]) {
+          const textResponse = jsonResponse.candidates[0].content.parts[0].text;
+          Logger.log(`Successfully used model: ${model}`);
+          return JSON.parse(textResponse);
+        }
+      } else {
+        Logger.log(`Model ${model} failed after retries.`);
+      }
+    } catch (e) {
+      Logger.log(`Exception with model ${model}: ${e.toString()}`);
     }
   }
-  return null;
+  throw new Error("All models failed for metadata generation.");
 }
 
 function deleteGeminiFile(fileUri, apiKey) {
