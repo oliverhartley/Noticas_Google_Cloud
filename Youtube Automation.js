@@ -90,9 +90,9 @@ function processAndUploadVideos(config) {
       const metadata = generateVideoMetadata(videoFile, apiKey, config.BLACKBOARD_FOLDER_ID);
 
       // 3. Upload to YouTube with generated metadata
-      const videoId = uploadVideoToYouTube(videoFile, metadata);
-      if (videoId) {
-        const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
+      const uploadResult = uploadVideoToYouTube(videoFile, metadata);
+      if (uploadResult.success && uploadResult.videoId) {
+        const videoUrl = `https://www.youtube.com/watch?v=${uploadResult.videoId}`;
         logVideoToSheet(videoUrl, config, true, true, metadata.title, metadata.description); // Defaulting to not made for kids and subtitles enabled
         Logger.log(`Successfully processed and uploaded: ${videoFile.getName()}`);
       }
