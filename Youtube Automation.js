@@ -281,8 +281,8 @@ function waitForFileProcessing(fileUri, apiKey) {
 function generateAndSaveBlackboardSummary(fileUri, apiKey, folderId, videoTitle) {
   const models = [
     { name: 'gemini-3-pro-preview', version: 'v1beta' },
-    { name: 'gemini-1.5-pro', version: 'v1' },
-    { name: 'gemini-1.5-flash', version: 'v1' }
+    { name: 'gemini-2.5-pro', version: 'v1beta' },
+    { name: 'gemini-2.5-flash', version: 'v1beta' }
   ];
 
   for (const model of models) {
@@ -337,8 +337,8 @@ function generateAndSaveBlackboardSummary(fileUri, apiKey, folderId, videoTitle)
 function generateContentWithFile(fileUri, apiKey, fileName) {
   const models = [
     { name: 'gemini-3-pro-preview', version: 'v1beta' },
-    { name: 'gemini-1.5-pro', version: 'v1' },
-    { name: 'gemini-1.5-flash', version: 'v1' }
+    { name: 'gemini-2.5-pro', version: 'v1beta' },
+    { name: 'gemini-2.5-flash', version: 'v1beta' }
   ];
 
   const prompt = `
@@ -364,7 +364,7 @@ function generateContentWithFile(fileUri, apiKey, fileName) {
       temperature: 0.7,
       topK: 40,
       topP: 0.95,
-      maxOutputTokens: 2048,
+      maxOutputTokens: 8192,
       responseMimeType: "application/json"
     }
   };
@@ -400,7 +400,7 @@ function generateContentWithFile(fileUri, apiKey, fileName) {
         if (jsonResponse.candidates && jsonResponse.candidates[0] && jsonResponse.candidates[0].content && jsonResponse.candidates[0].content.parts && jsonResponse.candidates[0].content.parts[0]) {
           const textResponse = jsonResponse.candidates[0].content.parts[0].text;
           Logger.log(`Successfully used model: ${model.name}`);
-          return JSON.parse(textResponse);
+          return JSON.parse(sanitizeJson(textResponse));
         }
       } else {
         Logger.log(`Model ${model.name} failed after retries.`);
@@ -410,6 +410,12 @@ function generateContentWithFile(fileUri, apiKey, fileName) {
     }
   }
   throw new Error("All models failed for metadata generation.");
+}
+
+function sanitizeJson(text) {
+  // Remove markdown code blocks if present
+  text = text.replace(/^```json\s*/, '').replace(/```$/, '');
+  return text.trim();
 }
 
 function deleteGeminiFile(fileUri, apiKey) {
