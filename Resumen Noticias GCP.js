@@ -24,7 +24,7 @@ const GCP_COLUMN_HEADER_LINK = 'Link'; // The header of the column containing ar
 const GCP_COLUMN_HEADER_CHANNEL = 'Channel'; // The header of the column containing the channel name
 const GCP_DOCUMENT_BASE_TITLE = 'Noticias GCP - '; // Base title for the new Google Document
 const GCP_EMAIL_SUBJECT_BASE = '[GCP Readiness] - Noticias GCP'; // Base subject of the email
-const VIDEO_SOURCE_FOLDER_ID = '1mrNTjpckNS4sAcS6vB5M8aRoAvwbECpu'; // Source folder for videos and PNGs
+const GCP_VIDEO_SOURCE_FOLDER_ID = '1mrNTjpckNS4sAcS6vB5M8aRoAvwbECpu'; // Source folder for videos and PNGs
 
 /**
  * Main function to read GCP articles, group by channel, summarize, write to a Google Doc, and email.
@@ -326,7 +326,7 @@ function sendEmailWithSummariesGCP(documentId, bccRecipients, isTest = false) {
     htmlBody += convertDocToHtmlGCP(documentId);
 
     // 6. Add PNG Image if available
-    const pngBlob = getLatestPngFromFolder(VIDEO_SOURCE_FOLDER_ID);
+    const pngBlob = getLatestPngFromFolder(GCP_VIDEO_SOURCE_FOLDER_ID);
     const inlineImages = {};
     if (pngBlob) {
       inlineImages['summaryImage'] = pngBlob;
@@ -618,7 +618,7 @@ function createDraftEmailWithSummariesGCP(documentId, bccRecipients, subject, op
     htmlBody += convertDocToHtmlGCP(documentId);
 
     // 5. Add PNG Image if available
-    const pngBlob = getLatestPngFromFolder(VIDEO_SOURCE_FOLDER_ID);
+    const pngBlob = getLatestPngFromFolder(GCP_VIDEO_SOURCE_FOLDER_ID);
     const inlineImages = {};
     if (pngBlob) {
       inlineImages['summaryImage'] = pngBlob;

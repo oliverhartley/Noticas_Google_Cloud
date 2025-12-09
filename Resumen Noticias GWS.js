@@ -12,7 +12,7 @@ const GWS_COLUMN_HEADER_LINK = 'Link'; // The header of the column containing ar
 const GWS_COLUMN_HEADER_CHANNEL = 'Channel'; // The header of the column containing the channel name
 const GWS_DOCUMENT_BASE_TITLE = 'Noticias GWS - '; // Base title for the new Google Document
 const GWS_EMAIL_SUBJECT_BASE = '[GWS Readiness] - Noticias GWS'; // Base subject of the email
-const VIDEO_SOURCE_FOLDER_ID = '1N_MgJYotvEEuyMQU3TA_9S6lQwFrfwuI'; // Source folder for videos and PNGs
+const GWS_VIDEO_SOURCE_FOLDER_ID = '1N_MgJYotvEEuyMQU3TA_9S6lQwFrfwuI'; // Source folder for videos and PNGs
 
 /**
  * Main function to read GWS articles, group by channel, summarize, write to a Google Doc, and email.
@@ -313,7 +313,7 @@ function sendEmailWithSummariesGWS(documentId, bccRecipients, isTest = false) {
     htmlBody += getHtmlContentFromDocGWS(documentId);
 
     // 6. Add PNG Image if available
-    const pngBlob = getLatestPngFromFolder(VIDEO_SOURCE_FOLDER_ID);
+    const pngBlob = getLatestPngFromFolder(GWS_VIDEO_SOURCE_FOLDER_ID);
     const inlineImages = {};
     if (pngBlob) {
       inlineImages['summaryImage'] = pngBlob;
