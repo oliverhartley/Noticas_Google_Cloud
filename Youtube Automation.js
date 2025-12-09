@@ -10,7 +10,8 @@ const CONFIG = {
     SHEET_NAME: "GWS Video Overview",
     SPREADSHEET_ID: "15-yneYsrmgkpJ5CGK57RVS9chMoV-ixw_w7hsPcaPuo", // Assuming same spreadsheet, adjust if needed
     VIDEO_SHEET_NAME: 'GWS Video Overview',
-    BLACKBOARD_FOLDER_ID: '1av7Fs1fKEDKwzP1morVrOJ0eunw-6sJz'
+    BLACKBOARD_FOLDER_ID: '1av7Fs1fKEDKwzP1morVrOJ0eunw-6sJz',
+    PLAYLIST_NAME: "GWS Updates"
   },
   GCP: {
     SOURCE_FOLDER_ID: "1mrNTjpckNS4sAcS6vB5M8aRoAvwbECpu",
@@ -18,7 +19,8 @@ const CONFIG = {
     SHEET_NAME: "GCP Video Overview",
     SPREADSHEET_ID: "15-yneYsrmgkpJ5CGK57RVS9chMoV-ixw_w7hsPcaPuo",
     VIDEO_SHEET_NAME: 'GCP Video Overview',
-    BLACKBOARD_FOLDER_ID: '1spu6q19oLUdtUV2uUVNAcTDnmWHMYhEw'
+    BLACKBOARD_FOLDER_ID: '1spu6q19oLUdtUV2uUVNAcTDnmWHMYhEw',
+    PLAYLIST_NAME: "GCP Updates"
   }
 };
 
@@ -95,6 +97,25 @@ function processAndUploadVideos(config) {
         const videoUrl = `https://www.youtube.com/watch?v=${uploadResult.videoId}`;
         logVideoToSheet(videoUrl, config, true, true, metadata.title, metadata.description); // Defaulting to not made for kids and subtitles enabled
         Logger.log(`Successfully processed and uploaded: ${videoFile.getName()}`);
+
+        // 4. Add to Playlist
+        if (config.PLAYLIST_NAME) {
+          try {
+            const playlistId = getPlaylistIdByName(config.PLAYLIST_NAME);
+            if (playlistId) {
+              const addedToPlaylist = addVideoToPlaylist(uploadResult.videoId, playlistId);
+              if (addedToPlaylist) {
+                Logger.log(`Added video to playlist: ${config.PLAYLIST_NAME}`);
+              } else {
+                Logger.log(`Failed to add video to playlist: ${config.PLAYLIST_NAME}`);
+              }
+            } else {
+              Logger.log(`Playlist not found: ${config.PLAYLIST_NAME}`);
+            }
+          } catch (e) {
+            Logger.log(`Error adding to playlist: ${e.toString()}`);
+          }
+        }
       }
 
       latestVideo.moveTo(destinationFolder);
@@ -456,6 +477,64 @@ function logVideoToSheet(videoUrl, config, notMadeForKids, subtitlesEnabled, tit
     Logger.log(`Logged video link, settings, title, and description to ${config.SHEET_NAME}`);
   } catch (e) {
     Logger.log(`Error logging to sheet: ${e.toString()}`);
+  }
+}
+
+/**
+ * Gets the Playlist ID by its name.
+ * @param {string} playlistName - The name of the playlist to find.
+ * @return {string|null} The Playlist ID or null if not found.
+ */
+function getPlaylistIdByName(playlistName) {
+  try {
+    let pageToken = '';
+    do {
+      const response = YouTube.Playlists.list('snippet', {
+        mine: true,
+        maxResults: 50,
+        pageToken: pageToken
+      });
+
+      if (response.items) {
+        for (const item of response.items) {
+          if (item.snippet.title === playlistName) {
+            return item.id;
+          }
+        }
+      }
+      pageToken = response.nextPageToken;
+    } while (pageToken);
+
+    Logger.log(`Playlist "${playlistName}" not found.`);
+    return null;
+  } catch (e) {
+    Logger.log(`Error listing playlists: ${e.toString()}`);
+    return null;
+  }
+}
+
+/**
+ * Adds a video to a specific playlist.
+ * @param {string} videoId - The ID of the video to add.
+ * @param {string} playlistId - The ID of the playlist.
+ * @return {boolean} True if successful, false otherwise.
+ */
+function addVideoToPlaylist(videoId, playlistId) {
+  try {
+    const resource = {
+      snippet: {
+        playlistId: playlistId,
+        resourceId: {
+          kind: 'youtube#video',
+          videoId: videoId
+        }
+      }
+    };
+    YouTube.PlaylistItems.insert(resource, 'snippet');
+    return true;
+  } catch (e) {
+    Logger.log(`Error adding video ${videoId} to playlist ${playlistId}: ${e.toString()}`);
+    return false;
   }
 }
 
