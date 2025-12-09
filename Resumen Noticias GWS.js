@@ -307,18 +307,18 @@ function sendEmailWithSummariesGWS(documentId, bccRecipients, isTest = false) {
       }
     }
 
-    htmlBody += `<br><p><strong>Para más detalles, aquí están las noticias del blog:</strong></p>`;
-
-    // 5. Add Article Summaries from Doc (Links Only)
-    htmlBody += getHtmlContentFromDocGWS(documentId);
-
-    // 6. Add PNG Image if available
+    // 5. Add PNG Image if available
     const pngBlob = getLatestPngFromFolder(GWS_VIDEO_SOURCE_FOLDER_ID);
     const inlineImages = {};
     if (pngBlob) {
       inlineImages['summaryImage'] = pngBlob;
       htmlBody += `<br><div style="text-align: center;"><img src="cid:summaryImage" style="max-width: 100%; height: auto; border: 1px solid #ddd; border-radius: 8px;"></div>`;
     }
+
+    htmlBody += `<br><p><strong>Para más detalles, aquí están las noticias del blog:</strong></p>`;
+
+    // 6. Add Article Summaries from Doc (Links Only)
+    htmlBody += getHtmlContentFromDocGWS(documentId);
 
     htmlBody += `<br><p>${phrases.closing}</p>`;
 

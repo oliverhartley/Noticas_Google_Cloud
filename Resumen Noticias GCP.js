@@ -320,18 +320,18 @@ function sendEmailWithSummariesGCP(documentId, bccRecipients, isTest = false) {
       }
     }
 
-    htmlBody += `<br><p><strong>Para más detalles, aquí están las noticias del blog:</strong></p>`;
-
-    // 5. Add Article Summaries from Doc (Links Only)
-    htmlBody += convertDocToHtmlGCP(documentId);
-
-    // 6. Add PNG Image if available
+    // 5. Add PNG Image if available
     const pngBlob = getLatestPngFromFolder(GCP_VIDEO_SOURCE_FOLDER_ID);
     const inlineImages = {};
     if (pngBlob) {
       inlineImages['summaryImage'] = pngBlob;
       htmlBody += `<br><div style="text-align: center;"><img src="cid:summaryImage" style="max-width: 100%; height: auto; border: 1px solid #ddd; border-radius: 8px;"></div>`;
     }
+
+    htmlBody += `<br><p><strong>Para más detalles, aquí están las noticias del blog:</strong></p>`;
+
+    // 6. Add Article Summaries from Doc (Links Only)
+    htmlBody += convertDocToHtmlGCP(documentId);
 
     htmlBody += `<br><p>${phrases.closing}</p>`;
 
@@ -614,16 +614,16 @@ function createDraftEmailWithSummariesGCP(documentId, bccRecipients, subject, op
       htmlBody += `<p style="margin: 0 0 10px 0;">Te aburre leer, como a mi :) ahora, gracias a NotebookLM, tenemos un resumen y análisis de las noticias aquí: <a href="${videoLink}" style="color: #1a73e8; text-decoration: none;">${videoLink}</a></p>`;
     }
     
-    // 4. Add the article summaries from the Google Doc (Links Only)
-    htmlBody += convertDocToHtmlGCP(documentId);
-
-    // 5. Add PNG Image if available
+    // 4. Add PNG Image if available
     const pngBlob = getLatestPngFromFolder(GCP_VIDEO_SOURCE_FOLDER_ID);
     const inlineImages = {};
     if (pngBlob) {
       inlineImages['summaryImage'] = pngBlob;
       htmlBody += `<br><div style="text-align: center;"><img src="cid:summaryImage" style="max-width: 100%; height: auto; border: 1px solid #ddd; border-radius: 8px;"></div>`;
     }
+
+    // 5. Add the article summaries from the Google Doc (Links Only)
+    htmlBody += convertDocToHtmlGCP(documentId);
     // --- END: MODIFIED SECTION ---
 
     const signatureHtml = `
