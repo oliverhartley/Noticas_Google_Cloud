@@ -12,6 +12,7 @@ const GWS_COLUMN_HEADER_LINK = 'Link'; // The header of the column containing ar
 const GWS_COLUMN_HEADER_CHANNEL = 'Channel'; // The header of the column containing the channel name
 const GWS_DOCUMENT_BASE_TITLE = 'Noticias GWS - '; // Base title for the new Google Document
 const GWS_EMAIL_SUBJECT_BASE = '[GWS Readiness] - Noticias GWS'; // Base subject of the email
+const VIDEO_SOURCE_FOLDER_ID = '1N_MgJYotvEEuyMQU3TA_9S6lQwFrfwuI'; // Source folder for videos and PNGs
 
 /**
  * Main function to read GWS articles, group by channel, summarize, write to a Google Doc, and email.
@@ -308,8 +309,16 @@ function sendEmailWithSummariesGWS(documentId, bccRecipients, isTest = false) {
 
     htmlBody += `<br><p><strong>Para más detalles, aquí están las noticias del blog:</strong></p>`;
 
-    // 5. Add Article Summaries from Doc
+    // 5. Add Article Summaries from Doc (Links Only)
     htmlBody += getHtmlContentFromDocGWS(documentId);
+
+    // 6. Add PNG Image if available
+    const pngBlob = getLatestPngFromFolder(VIDEO_SOURCE_FOLDER_ID);
+    const inlineImages = {};
+    if (pngBlob) {
+      inlineImages['summaryImage'] = pngBlob;
+      htmlBody += `<br><div style="text-align: center;"><img src="cid:summaryImage" style="max-width: 100%; height: auto; border: 1px solid #ddd; border-radius: 8px;"></div>`;
+    }
 
     htmlBody += `<br><p>${phrases.closing}</p>`;
 
@@ -328,7 +337,8 @@ function sendEmailWithSummariesGWS(documentId, bccRecipients, isTest = false) {
     MailApp.sendEmail({
       bcc: bccRecipients,
       subject: subject,
-      htmlBody: htmlBody
+      htmlBody: htmlBody,
+      inlineImages: Object.keys(inlineImages).length > 0 ? inlineImages : null
     });
     Logger.log(`Successfully sent GWS email to: ${bccRecipients}`);
     return true;
@@ -416,21 +426,16 @@ function getHtmlContentFromDocGWS(documentId, openingPhraseHtml) {
 
             let style = 'padding: 0;';
           if (isBold || linkUrl) {
-          // Treat as Title
-                style += ' font-weight: bold; margin: 10px 0 0 0; color: #1a73e8; font-size: 12pt;';
-            } else {
-            // Treat as Description
-                style += ' font-weight: normal; margin: 0 0 10px 0; color: #3c4043; font-size: 11pt;';
-            }
-
-            let elementHtml = `<p style="${style}">`;
-          if (linkUrl && (isBold || linkUrl)) { // If it has a link and we decided it's a title
+              // Treat as Title - KEEP
+              style += ' font-weight: bold; margin: 10px 0 0 0; color: #1a73e8; font-size: 12pt;';
+              let elementHtml = `<p style="${style}">`;
                 elementHtml += `<a href="${linkUrl}" style="text-decoration: none; color: #1a73e8;">${text}</a>`;
+              elementHtml += '</p>';
+              htmlContent += elementHtml;
             } else {
-                elementHtml += text;
+              // Treat as Description - SKIP
+              continue;
             }
-            elementHtml += '</p>';
-            htmlContent += elementHtml;
 
         } else if (type === DocumentApp.ElementType.HORIZONTAL_RULE) {
             htmlContent += "<hr style='border: 0; border-top: 1px solid #eee;'>";

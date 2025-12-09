@@ -155,3 +155,34 @@ function removeHashtags(text) {
   if (!text) return text;
   return text.replace(/#\w+/g, '').trim();
 }
+
+/**
+ * Gets the blob of the latest PNG file in a folder.
+ * @param {string} folderId - The ID of the folder to search.
+ * @return {GoogleAppsScript.Base.Blob|null} The blob of the latest PNG, or null if none found.
+ */
+function getLatestPngFromFolder(folderId) {
+  try {
+    const folder = DriveApp.getFolderById(folderId);
+    const files = folder.getFilesByType(MimeType.PNG);
+    let latestFile = null;
+    let latestTime = 0;
+
+    while (files.hasNext()) {
+      const file = files.next();
+      const time = file.getLastUpdated().getTime();
+      if (time > latestTime) {
+        latestTime = time;
+        latestFile = file;
+      }
+    }
+
+    if (latestFile) {
+      Logger.log(`Found latest PNG: ${latestFile.getName()}`);
+      return latestFile.getBlob();
+    }
+  } catch (e) {
+    Logger.log(`Error getting latest PNG from folder ${folderId}: ${e.toString()}`);
+  }
+  return null;
+}

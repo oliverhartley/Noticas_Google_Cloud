@@ -24,6 +24,7 @@ const GCP_COLUMN_HEADER_LINK = 'Link'; // The header of the column containing ar
 const GCP_COLUMN_HEADER_CHANNEL = 'Channel'; // The header of the column containing the channel name
 const GCP_DOCUMENT_BASE_TITLE = 'Noticias GCP - '; // Base title for the new Google Document
 const GCP_EMAIL_SUBJECT_BASE = '[GCP Readiness] - Noticias GCP'; // Base subject of the email
+const VIDEO_SOURCE_FOLDER_ID = '1mrNTjpckNS4sAcS6vB5M8aRoAvwbECpu'; // Source folder for videos and PNGs
 
 /**
  * Main function to read GCP articles, group by channel, summarize, write to a Google Doc, and email.
@@ -321,8 +322,16 @@ function sendEmailWithSummariesGCP(documentId, bccRecipients, isTest = false) {
 
     htmlBody += `<br><p><strong>Para más detalles, aquí están las noticias del blog:</strong></p>`;
 
-    // 5. Add Article Summaries from Doc
+    // 5. Add Article Summaries from Doc (Links Only)
     htmlBody += convertDocToHtmlGCP(documentId);
+
+    // 6. Add PNG Image if available
+    const pngBlob = getLatestPngFromFolder(VIDEO_SOURCE_FOLDER_ID);
+    const inlineImages = {};
+    if (pngBlob) {
+      inlineImages['summaryImage'] = pngBlob;
+      htmlBody += `<br><div style="text-align: center;"><img src="cid:summaryImage" style="max-width: 100%; height: auto; border: 1px solid #ddd; border-radius: 8px;"></div>`;
+    }
 
     htmlBody += `<br><p>${phrases.closing}</p>`;
 
@@ -341,7 +350,8 @@ function sendEmailWithSummariesGCP(documentId, bccRecipients, isTest = false) {
     MailApp.sendEmail({
       bcc: bccRecipients,
       subject: subject,
-      htmlBody: htmlBody
+      htmlBody: htmlBody,
+      inlineImages: Object.keys(inlineImages).length > 0 ? inlineImages : null
     });
     Logger.log(`Successfully sent GCP email to: ${bccRecipients}`);
     return true;
@@ -428,19 +438,20 @@ function convertDocToHtmlGCP(documentId) {
 
             let style = 'padding: 0;';
             if (isBold) {
-                style += ' font-weight: bold; margin: 10px 0 0 0; color: #1a73e8; font-size: 12pt;';
-            } else {
-                style += ' font-weight: normal; margin: 0 0 10px 0; color: #3c4043; font-size: 11pt;';
-            }
-
-            let elementHtml = `<p style="${style}">`;
-            if (linkUrl && isBold) {
+              // Treat as Title - KEEP
+              style += ' font-weight: bold; margin: 10px 0 0 0; color: #1a73e8; font-size: 12pt;';
+              let elementHtml = `<p style="${style}">`;
+              if (linkUrl) {
                 elementHtml += `<a href="${linkUrl}" style="text-decoration: none; color: #1a73e8;">${text}</a>`;
-            } else {
+              } else {
                 elementHtml += text;
+              }
+              elementHtml += '</p>';
+              htmlContent += elementHtml;
+            } else {
+              // Treat as Description - SKIP
+              continue;
             }
-            elementHtml += '</p>';
-            htmlContent += elementHtml;
 
         } else if (type === DocumentApp.ElementType.HORIZONTAL_RULE) {
             htmlContent += "<hr style='border: 0; border-top: 1px solid #eee;'>";
@@ -603,8 +614,16 @@ function createDraftEmailWithSummariesGCP(documentId, bccRecipients, subject, op
       htmlBody += `<p style="margin: 0 0 10px 0;">Te aburre leer, como a mi :) ahora, gracias a NotebookLM, tenemos un resumen y análisis de las noticias aquí: <a href="${videoLink}" style="color: #1a73e8; text-decoration: none;">${videoLink}</a></p>`;
     }
     
-    // 4. Add the article summaries from the Google Doc
+    // 4. Add the article summaries from the Google Doc (Links Only)
     htmlBody += convertDocToHtmlGCP(documentId);
+
+    // 5. Add PNG Image if available
+    const pngBlob = getLatestPngFromFolder(VIDEO_SOURCE_FOLDER_ID);
+    const inlineImages = {};
+    if (pngBlob) {
+      inlineImages['summaryImage'] = pngBlob;
+      htmlBody += `<br><div style="text-align: center;"><img src="cid:summaryImage" style="max-width: 100%; height: auto; border: 1px solid #ddd; border-radius: 8px;"></div>`;
+    }
     // --- END: MODIFIED SECTION ---
 
     const signatureHtml = `
@@ -621,7 +640,8 @@ function createDraftEmailWithSummariesGCP(documentId, bccRecipients, subject, op
 
     GmailApp.createDraft('', subject, '', {
       bcc: bccRecipients,
-      htmlBody: htmlBody
+      htmlBody: htmlBody,
+      inlineImages: Object.keys(inlineImages).length > 0 ? inlineImages : null
     });
 
     Logger.log(`Successfully created email draft for recipients: ${bccRecipients}`);
