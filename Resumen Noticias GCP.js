@@ -325,7 +325,7 @@ function sendEmailWithSummariesGCP(documentId, bccRecipients, isTest = false) {
     const inlineImages = {};
     if (pngBlob) {
       inlineImages['summaryImage'] = pngBlob;
-      htmlBody += `<br><div style="text-align: center;"><img src="cid:summaryImage" style="max-width: 100%; height: auto; border: 1px solid #ddd; border-radius: 8px;"></div>`;
+      htmlBody += `<br><div style="text-align: center;"><img src="cid:summaryImage" style="max-width: 80%; height: auto; border: 1px solid #ddd; border-radius: 8px;"></div>`;
     }
 
     htmlBody += `<br><p><strong>Para más detalles, aquí están las noticias del blog:</strong></p>`;
@@ -619,7 +619,7 @@ function createDraftEmailWithSummariesGCP(documentId, bccRecipients, subject, op
     const inlineImages = {};
     if (pngBlob) {
       inlineImages['summaryImage'] = pngBlob;
-      htmlBody += `<br><div style="text-align: center;"><img src="cid:summaryImage" style="max-width: 100%; height: auto; border: 1px solid #ddd; border-radius: 8px;"></div>`;
+      htmlBody += `<br><div style="text-align: center;"><img src="cid:summaryImage" style="max-width: 80%; height: auto; border: 1px solid #ddd; border-radius: 8px;"></div>`;
     }
 
     // 5. Add the article summaries from the Google Doc (Links Only)
