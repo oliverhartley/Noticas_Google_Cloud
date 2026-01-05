@@ -108,6 +108,14 @@ function getLinkedInPersonUrn(accessToken) {
  * @param {string} linkTitle - (Optional) Title for the link card.
  * @param {string} linkDescription - (Optional) Description for the link card.
  */
+/**
+ * Posts a text update with an optional link/media to LinkedIn.
+ * Uses the modern '/posts' API (v202401+).
+ * @param {string} message - The text content of the post.
+ * @param {string} linkUrl - (Optional) URL to share (e.g., YouTube link).
+ * @param {string} linkTitle - (Optional) Title for the link card.
+ * @param {string} linkDescription - (Optional) Description for the link card.
+ */
 function postToLinkedIn(message, linkUrl, linkTitle, linkDescription) {
   const token = getLinkedInAccessToken();
   if (!token) {
@@ -117,42 +125,36 @@ function postToLinkedIn(message, linkUrl, linkTitle, linkDescription) {
 
   try {
     const personUrn = getLinkedInPersonUrn(token);
-    const url = `${LINKEDIN_API_BASE}/ugcPosts`;
+    // Use the modern /posts endpoint
+    // Standard Header for versioning: LinkedIn-Version: YYYYMM
+    const url = 'https://api.linkedin.com/rest/posts';
 
-    // Construct the request body for specificContent (Share)
-    // See: https://learn.microsoft.com/en-us/linkedin/marketing/community-management/shares/ugc-post-api
-    
+    // Construct the request body for /posts
     const requestBody = {
       "author": personUrn,
-      "lifecycleState": "PUBLISHED",
-      "specificContent": {
-        "com.linkedin.ugc.ShareContent": {
-          "shareCommentary": {
-            "text": message
-          },
-          "shareMediaCategory": "NONE"
-        }
+      "commentary": message,
+      "visibility": "PUBLIC",
+      "distribution": {
+        "feedDistribution": "MAIN_FEED",
+        "targetEntities": [],
+        "thirdPartyDistributionChannels": []
       },
-      "visibility": {
-        "com.linkedin.ugc.MemberNetworkVisibility": "PUBLIC"
-      }
+      "lifecycleState": "PUBLISHED",
+      "isReshareDisabledByAuthor": false
     };
 
-    // If there is a link, change media category to ARTICLE and add media
+    // If there is a link, add 'content' object with 'article'
     if (linkUrl) {
-      requestBody.specificContent["com.linkedin.ugc.ShareContent"].shareMediaCategory = "ARTICLE";
-      requestBody.specificContent["com.linkedin.ugc.ShareContent"].media = [
-        {
-          "status": "READY",
-          "description": {
-            "text": linkDescription || "News Update"
-          },
-          "originalUrl": linkUrl,
-          "title": {
-            "text": linkTitle || "Click to view"
-          }
+      requestBody.content = {
+        "article": {
+          "source": linkUrl,
+          "title": linkTitle || "News Update",
+          // 'description' is not always supported in 'article' depending on version, 
+          // but 'title' and 'source' are standard.
         }
-      ];
+      };
+      // Note: 'thumbnail' would require an image URN, which we don't have.
+      // LinkedIn will scrape the URL for the image.
     }
 
     const options = {
@@ -160,7 +162,8 @@ function postToLinkedIn(message, linkUrl, linkTitle, linkDescription) {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
-        'X-Restli-Protocol-Version': '2.0.0'
+        'X-Restli-Protocol-Version': '2.0.0',
+        'LinkedIn-Version': '202401' 
       },
       payload: JSON.stringify(requestBody),
       muteHttpExceptions: true
@@ -171,11 +174,34 @@ function postToLinkedIn(message, linkUrl, linkTitle, linkDescription) {
     const responseBody = response.getContentText();
 
     if (responseCode === 201) {
-      const data = JSON.parse(responseBody);
-      Logger.log(`Successfully posted to LinkedIn. ID: ${data.id}`);
+      // Header 'x-restli-id' contains the new URN, or it's in the body?
+      // /posts usually returns the created object or header.
+      // If 201 Created, check headers or body.
+      // Usually body is empty on 201? Or contains ID.
+      // Let's check headers for ID if body is empty, or try parsing body.
+
+      let postId = '';
+      const headers = response.getHeaders();
+      if (headers['x-linkedin-id']) {
+        postId = headers['x-linkedin-id'];
+      } else if (headers['x-restli-id']) {
+        postId = headers['x-restli-id'];
+      }
+
+      // If not in headers, check body (sometimes it's there)
+      if (!postId && responseBody) {
+        try {
+          const data = JSON.parse(responseBody);
+          postId = data.id;
+        } catch (e) {
+          // ignore
+        }
+      }
+
+      Logger.log(`Successfully posted to LinkedIn. ID: ${postId}`);
       // Store the last post ID in script properties for easy deletion
-      PropertiesService.getScriptProperties().setProperty('LAST_LINKEDIN_POST_URN', data.id);
-      return data.id;
+      PropertiesService.getScriptProperties().setProperty('LAST_LINKEDIN_POST_URN', postId);
+      return postId;
     } else {
       Logger.log(`Error posting to LinkedIn: ${responseCode} - ${responseBody}`);
       return null;
@@ -189,7 +215,8 @@ function postToLinkedIn(message, linkUrl, linkTitle, linkDescription) {
 
 /**
  * Deletes a LinkedIn post by URN.
- * @param {string} postUrn - The URN of the post to delete (e.g. urn:li:share:123).
+ * Uses the modern '/posts' API.
+ * @param {string} postUrn - The URN of the post to delete.
  */
 function deleteLinkedInPost(postUrn) {
   const token = getLinkedInAccessToken();
@@ -204,14 +231,16 @@ function deleteLinkedInPost(postUrn) {
     }
   }
 
+  // Ensure URN is properly encoded for the URL
   const encodedUrn = encodeURIComponent(postUrn);
-  const url = `${LINKEDIN_API_BASE}/ugcPosts/${encodedUrn}`;
+  const url = `https://api.linkedin.com/rest/posts/${encodedUrn}`;
 
   const options = {
     method: 'delete',
     headers: {
       'Authorization': `Bearer ${token}`,
-      'X-Restli-Protocol-Version': '2.0.0'
+      'X-Restli-Protocol-Version': '2.0.0',
+      'LinkedIn-Version': '202401'
     },
     muteHttpExceptions: true
   };
@@ -230,6 +259,7 @@ function deleteLinkedInPost(postUrn) {
     Logger.log(`Exception in deleteLinkedInPost: ${e.message}`);
   }
 }
+
 
 /**
  * Test function to verify authentication.
