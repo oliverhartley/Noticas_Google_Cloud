@@ -224,13 +224,6 @@ function summarizeArticlesGCP() {
     `${openingPhraseText}\n\n${videoDescription}` : 
     `${openingPhraseText}\n\nCheck out the latest Google Cloud news update!`;
 
-  Logger.log(`[DEBUG] LinkedIn Variables:
-    Video Link: ${videoLink}
-    Video Title: ${videoTitle}
-    Video Desc (Length): ${videoDescription ? videoDescription.length : 0}
-    Final Message: ${linkedInMessage}
-  `);
-
   // --- Fetch Optional Image ---
   let imageBlob = null;
   try {
