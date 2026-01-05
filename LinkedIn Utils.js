@@ -204,9 +204,40 @@ function testLinkedInAuth() {
   return urn;
 }
 
+
 /**
  * Manual trigger to delete the last created post.
  */
 function manualDeleteLastPost() {
   deleteLinkedInPost();
+}
+
+/**
+ * Full lifecycle test: Posts "Hello World", waits 10s, then deletes it.
+ */
+function testLinkedInLifecycle() {
+  Logger.log("--- Starting LinkedIn Lifecycle Test ---");
+
+  // 1. Create Post
+  const message = "Hello world - Integration Test " + new Date().toISOString();
+  Logger.log(`1. Posting message: "${message}"`);
+  const postId = postToLinkedIn(message);
+
+  if (!postId) {
+    Logger.log("ERROR: Failed to create post. Check logs.");
+    return;
+  }
+
+  Logger.log(`2. Post created successfully. ID: ${postId}`);
+  Logger.log("   (Check your LinkedIn profile now to see it)");
+
+  // 2. Wait
+  Logger.log("3. Waiting 10 seconds before deletion...");
+  Utilities.sleep(10000);
+
+  // 3. Delete Post
+  Logger.log(`4. Deleting post ${postId}...`);
+  deleteLinkedInPost(postId);
+
+  Logger.log("--- Test Complete ---");
 }
