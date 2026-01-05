@@ -219,7 +219,10 @@ function summarizeArticlesGCP() {
   }
 
   const openingPhraseText = randomPhraseObject ? randomPhraseObject.getText() : FALLBACK_PHRASE;
-  const linkedInMessage = `${openingPhraseText}\n\nCheck out the latest Google Cloud news update!`;
+  // Use the video description (YouTube text) as the main commentary if available.
+  const linkedInMessage = videoDescription ?
+    `${openingPhraseText}\n\n${videoDescription}` :
+    `${openingPhraseText}\n\nCheck out the latest Google Cloud news update!`;
 
   if (videoLink) {
     // postToLinkedIn is a global function from LinkedIn Utils.js
