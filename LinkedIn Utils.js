@@ -25,39 +25,63 @@ function getLinkedInAccessToken() {
  * @param {string} accessToken - The LinkedIn OAuth2 access token.
  * @returns {string} The user's URN (e.g., 'urn:li:person:abcdef123').
  */
+/**
+ * Gets the authenticated user's LinkedIn Member URN (ID).
+ * @param {string} accessToken - The LinkedIn OAuth2 access token.
+ * @returns {string} The user's URN (e.g., 'urn:li:person:abcdef123').
+ */
 function getLinkedInPersonUrn(accessToken) {
   const token = accessToken || getLinkedInAccessToken();
   if (!token) throw new Error('No Access Token available.');
 
-  const url = `${LINKEDIN_API_BASE}/userinfo`;
-  
-  const options = {
-    method: 'get',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Connection': 'Keep-Alive'
-    },
-    muteHttpExceptions: true
-  };
-
+  // Strategy 1: Try OIDC /userinfo endpoint (requires 'openid' scope)
   try {
-    const response = UrlFetchApp.fetch(url, options);
-    const responseCode = response.getResponseCode();
-    const responseBody = response.getContentText();
+    const url = `${LINKEDIN_API_BASE}/userinfo`;
+    const options = {
+      method: 'get',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+      muteHttpExceptions: true
+    };
 
-    if (responseCode === 200) {
-      const data = JSON.parse(responseBody);
-      // userinfo returns 'sub' as the URN
-      return data.sub; 
+    const response = UrlFetchApp.fetch(url, options);
+    if (response.getResponseCode() === 200) {
+      const data = JSON.parse(response.getContentText());
+      return data.sub; // 'sub' is the URN in OIDC
     } else {
-      Logger.log(`Error getting LinkedIn Profile: ${responseCode} - ${responseBody}`);
-      throw new Error(`Failed to get LinkedIn Profile: ${responseBody}`);
+      Logger.log(`OIDC /userinfo failed (${response.getResponseCode()}). Trying legacy /me endpoint...`);
+    }
+  } catch (e) {
+    Logger.log(`OIDC check failed: ${e.message}`);
+  }
+
+  // Strategy 2: Try Legacy /me endpoint (requires 'r_liteprofile' or 'r_basicprofile')
+  try {
+    const url = `${LINKEDIN_API_BASE}/me`;
+    const options = {
+      method: 'get',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+      muteHttpExceptions: true
+    };
+
+    const response = UrlFetchApp.fetch(url, options);
+    if (response.getResponseCode() === 200) {
+      const data = JSON.parse(response.getContentText());
+      // /me returns generic ID, need to prefix
+      return `urn:li:person:${data.id}`;
+    } else {
+      Logger.log(`Legacy /me failed: ${response.getResponseCode()} - ${response.getContentText()}`);
+      throw new Error(`Failed to retrieve Profile ID. Scopes 'openid', 'profile', or 'r_liteprofile' might be missing.`);
     }
   } catch (e) {
     Logger.log(`Exception in getLinkedInPersonUrn: ${e.message}`);
     throw e;
   }
 }
+
 
 /**
  * Posts a text update with an optional link/media to LinkedIn.
