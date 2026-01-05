@@ -109,14 +109,80 @@ function getLinkedInPersonUrn(accessToken) {
  * @param {string} linkDescription - (Optional) Description for the link card.
  */
 /**
+ * Initializes an image upload to LinkedIn.
+ * @param {string} token - Access Token.
+ * @param {string} personUrn - User URN.
+ * @returns {object} { uploadUrl, imageUrn }
+ */
+function initializeImageUpload(token, personUrn) {
+  const url = 'https://api.linkedin.com/rest/images?action=initializeUpload';
+  const requestBody = {
+    "initializeUploadRequest": {
+      "owner": personUrn
+    }
+  };
+
+  const options = {
+    method: 'post',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+      'X-Restli-Protocol-Version': '2.0.0',
+      'LinkedIn-Version': '202511'
+    },
+    payload: JSON.stringify(requestBody),
+    muteHttpExceptions: true
+  };
+
+  const response = UrlFetchApp.fetch(url, options);
+  if (response.getResponseCode() === 200) {
+    const data = JSON.parse(response.getContentText());
+    return {
+      uploadUrl: data.value.uploadUrl,
+      imageUrn: data.value.image
+    };
+  } else {
+    Logger.log(`Error initializing upload: ${response.getResponseCode()} - ${response.getContentText()}`);
+    return null;
+  }
+}
+
+/**
+ * Uploads the image binary to the signed URL.
+ * @param {string} uploadUrl - The URL from initializeImageUpload.
+ * @param {Blob} imageBlob - The image file blob.
+ */
+function uploadImageBinary(uploadUrl, imageBlob) {
+  const options = {
+    method: 'put',
+    headers: {
+      // No Auth header needed for the upload URL usually, but let's check docs. 
+      // Actually strictly binary.
+    },
+    payload: imageBlob.getBytes(),
+    muteHttpExceptions: true
+  };
+
+  const response = UrlFetchApp.fetch(uploadUrl, options);
+  if (response.getResponseCode() === 201 || response.getResponseCode() === 200) {
+    Logger.log("Image binary uploaded successfully.");
+    return true;
+  } else {
+    Logger.log(`Error uploading binary: ${response.getResponseCode()} - ${response.getContentText()}`);
+    return false;
+  }
+}
+
+/**
  * Posts a text update with an optional link/media to LinkedIn.
- * Uses the modern '/posts' API (v202401+).
+ * Uses the modern '/posts' API (v202511).
  * @param {string} message - The text content of the post.
  * @param {string} linkUrl - (Optional) URL to share (e.g., YouTube link).
  * @param {string} linkTitle - (Optional) Title for the link card.
  * @param {string} linkDescription - (Optional) Description for the link card.
+ * @param {Blob} imageBlob - (Optional) Image blob to use as thumbnail or main image.
  */
-function postToLinkedIn(message, linkUrl, linkTitle, linkDescription) {
+function postToLinkedIn(message, linkUrl, linkTitle, linkDescription, imageBlob) {
   const token = getLinkedInAccessToken();
   if (!token) {
     Logger.log('No LinkedIn Access Token found.');
@@ -125,6 +191,21 @@ function postToLinkedIn(message, linkUrl, linkTitle, linkDescription) {
 
   try {
     const personUrn = getLinkedInPersonUrn(token);
+
+    // 1. Upload Image (if provided)
+    let uploadedImageUrn = null;
+    if (imageBlob) {
+      Logger.log("Uploading image...");
+      const uploadData = initializeImageUpload(token, personUrn);
+      if (uploadData) {
+        const success = uploadImageBinary(uploadData.uploadUrl, imageBlob);
+        if (success) {
+          uploadedImageUrn = uploadData.imageUrn;
+        }
+      }
+    }
+
+    // 2. Create Post
     // Use the modern /posts endpoint
     // Standard Header for versioning: LinkedIn-Version: YYYYMM
     const url = 'https://api.linkedin.com/rest/posts';
@@ -153,8 +234,17 @@ function postToLinkedIn(message, linkUrl, linkTitle, linkDescription) {
           // but 'title' and 'source' are standard.
         }
       };
-      // Note: 'thumbnail' would require an image URN, which we don't have.
-      // LinkedIn will scrape the URL for the image.
+      // If image uploaded, use it as thumbnail
+      if (uploadedImageUrn) {
+        requestBody.content.article.thumbnail = uploadedImageUrn;
+      }
+    } else if (uploadedImageUrn) {
+      // No link, but image exists -> Create Image Post
+      requestBody.content = {
+        "media": {
+          "id": uploadedImageUrn
+        }
+      };
     }
 
     const options = {
