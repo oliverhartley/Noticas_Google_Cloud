@@ -212,8 +212,23 @@ function summarizeArticlesGWS() {
     `${openingPhraseText}\n\n${videoDescription}` :
     `${openingPhraseText}\n\nCheck out the latest Google Workspace news update!`;
 
+  // --- Fetch Optional Image ---
+  let imageBlob = null;
+  try {
+    const folderId = '1N_MgJYotvEEuyMQU3TA_9S6lQwFrfwuI';
+    const folder = DriveApp.getFolderById(folderId);
+    const files = folder.getFiles();
+    if (files.hasNext()) {
+      const file = files.next();
+      imageBlob = file.getBlob();
+      Logger.log(`Found image for LinkedIn post: ${file.getName()}`);
+    }
+  } catch (e) {
+    Logger.log(`Warning: Failed to fetch image from Drive: ${e.message}`);
+  }
+
   if (videoLink) {
-    const postId = postToLinkedIn(linkedInMessage, videoLink, videoTitle, videoDescription);
+    const postId = postToLinkedIn(linkedInMessage, videoLink, videoTitle, videoDescription, imageBlob);
     if (postId) {
       Logger.log('Successfully posted to LinkedIn: ' + postId);
     } else {
