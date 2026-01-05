@@ -239,7 +239,7 @@ function postToLinkedIn(message, linkUrl, linkTitle, linkDescription, imageBlob)
       // --- IMAGE POST ---
       // Add the link to the text. User requested it at the BEGINNING.
       if (linkUrl) {
-        finalMessage = `▶️ Watch Video: ${linkUrl}\n\n${finalMessage}`;
+        finalMessage = `▶️ Vea el resumen aquí: ${linkUrl}\n\n${finalMessage}`;
       }
 
       requestBody.commentary = finalMessage;
