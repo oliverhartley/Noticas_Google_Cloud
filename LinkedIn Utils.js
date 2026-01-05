@@ -163,7 +163,7 @@ function postToLinkedIn(message, linkUrl, linkTitle, linkDescription) {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
         'X-Restli-Protocol-Version': '2.0.0',
-        'LinkedIn-Version': '202406' 
+        'LinkedIn-Version': '202511' 
       },
       payload: JSON.stringify(requestBody),
       muteHttpExceptions: true
@@ -240,7 +240,7 @@ function deleteLinkedInPost(postUrn) {
     headers: {
       'Authorization': `Bearer ${token}`,
       'X-Restli-Protocol-Version': '2.0.0',
-      'LinkedIn-Version': '202406'
+      'LinkedIn-Version': '202511'
     },
     muteHttpExceptions: true
   };
