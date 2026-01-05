@@ -55,9 +55,16 @@ function getLinkedInPersonUrn(accessToken) {
     const response = UrlFetchApp.fetch(url, options);
     if (response.getResponseCode() === 200) {
       const data = JSON.parse(response.getContentText());
+      // OIDC 'sub' is usually just the ID (e.g. '12345'), but can be a URN. 
+      // ugcPosts requires 'urn:li:person:12345'
+      let urn = data.sub;
+      if (!urn.startsWith('urn:li:person:')) {
+        urn = `urn:li:person:${urn}`;
+      }
+
       // Cache the result to avoid future calls
-      props.setProperty('LINKEDIN_PERSON_URN', data.sub);
-      return data.sub; // 'sub' is the URN in OIDC
+      props.setProperty('LINKEDIN_PERSON_URN', urn);
+      return urn; 
     } else {
       Logger.log(`OIDC /userinfo failed (${response.getResponseCode()}). Trying legacy /me endpoint...`);
     }
