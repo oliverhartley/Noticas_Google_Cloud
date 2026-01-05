@@ -174,13 +174,10 @@ function uploadImageBinary(uploadUrl, imageBlob) {
 }
 
 /**
- * Posts a text update with an optional link/media to LinkedIn.
- * Uses the modern '/posts' API (v202511).
- * @param {string} message - The text content of the post.
- * @param {string} linkUrl - (Optional) URL to share (e.g., YouTube link).
- * @param {string} linkTitle - (Optional) Title for the link card.
- * @param {string} linkDescription - (Optional) Description for the link card.
- * @param {Blob} imageBlob - (Optional) Image blob to use as thumbnail or main image.
+ * Posts a text update to LinkedIn.
+ * Logic:
+ * - If Image provided: Posts as an IMAGE post, and appends the Link URL to the text.
+ * - If No Image: Posts as an ARTICLE (Link Card) post.
  */
 function postToLinkedIn(message, linkUrl, linkTitle, linkDescription, imageBlob) {
   const token = getLinkedInAccessToken();
@@ -205,15 +202,15 @@ function postToLinkedIn(message, linkUrl, linkTitle, linkDescription, imageBlob)
       }
     }
 
-    // 2. Create Post
-    // Use the modern /posts endpoint
-    // Standard Header for versioning: LinkedIn-Version: YYYYMM
+    // 2. Prepare Post Data
     const url = 'https://api.linkedin.com/rest/posts';
 
-    // Construct the request body for /posts
+    // Default commentary
+    let finalMessage = message;
+
+    // Base Request Body
     const requestBody = {
       "author": personUrn,
-      "commentary": message,
       "visibility": "PUBLIC",
       "distribution": {
         "feedDistribution": "MAIN_FEED",
@@ -224,27 +221,36 @@ function postToLinkedIn(message, linkUrl, linkTitle, linkDescription, imageBlob)
       "isReshareDisabledByAuthor": false
     };
 
-    // If there is a link, add 'content' object with 'article'
-    if (linkUrl) {
+    // 3. Determine Format (Image vs Article)
+    if (uploadedImageUrn) {
+      // --- IMAGE POST ---
+      // Add the link to the text, since we can't have both Image Media AND Article Card
+      if (linkUrl) {
+        finalMessage += `\n\nWatch here: ${linkUrl}`;
+      }
+
+      requestBody.commentary = finalMessage;
+      requestBody.content = {
+        "media": {
+          "id": uploadedImageUrn,
+          "title": linkTitle || "News Update"
+        }
+      };
+
+    } else if (linkUrl) {
+      // --- ARTICLE (LINK CARD) POST ---
+      // Fallback if no image (or upload failed)
+      requestBody.commentary = finalMessage;
       requestBody.content = {
         "article": {
           "source": linkUrl,
           "title": linkTitle || "News Update",
-          // 'description' is not always supported in 'article' depending on version, 
-          // but 'title' and 'source' are standard.
+          // 'description' often ignored by API but good to have
         }
       };
-      // If image uploaded, use it as thumbnail
-      if (uploadedImageUrn) {
-        requestBody.content.article.thumbnail = uploadedImageUrn;
-      }
-    } else if (uploadedImageUrn) {
-      // No link, but image exists -> Create Image Post
-      requestBody.content = {
-        "media": {
-          "id": uploadedImageUrn
-        }
-      };
+    } else {
+      // --- TEXT ONLY ---
+      requestBody.commentary = finalMessage;
     }
 
     const options = {
