@@ -3,11 +3,22 @@
  * @description Utilities for interacting with the LinkedIn API to post updates and manage posts.
  */
 
-// TEMPORARY: Hardcoded token for immediate usage. 
-// RECOMMENDATION: Move this to ScriptProperties for security (File > Project Properties > Script Properties).
-const LINKEDIN_ACCESS_TOKEN = 'AQWQolO3KkBMuTVAD-S3LgX_eNHiEOFqyBhmwa39j7ldWvtsZd7uTgJlu2JWV2I9bZ_a3zYRK4MspDfYS4Xl8p6-bK6l4-lW3AatJFwM8njP7rM6Vm7eHFOGNvumbDRbOPwPQTyFT8r_hRfEe38FQGVk8581JIppknQ5VkwLpF35XcMiKKzw3GrcEfHBRzZeoGpRkDymsjkdYgINKO-aJYrlDmtYF_9JqnK9VZOGtz_167KJK7QD5hJWRcG5nMhNNfgIp-QIZBMJcAuiSqyz9ELfs_rIo0L5lHp2QVamuR-Da2UjRhG2dAXPczhxi5MV4jqzibaYhi5ghd5CPWGCfIcoqa-qwA';
-
 const LINKEDIN_API_BASE = 'https://api.linkedin.com/v2';
+
+/**
+ * Retrieves the LinkedIn Access Token from Script Properties.
+ * Falls back to a hardcoded string if not found (though Script Properties is recommended).
+ */
+function getLinkedInAccessToken() {
+  const props = PropertiesService.getScriptProperties();
+  const token = props.getProperty('LINKEDIN_ACCESS_TOKEN');
+
+  if (!token) {
+    Logger.log('ERROR: LINKEDIN_ACCESS_TOKEN not found in Script Properties.');
+    // Optional: Return a fallback or throw error
+  }
+  return token;
+}
 
 /**
  * Gets the authenticated user's LinkedIn Member URN (ID).
@@ -15,7 +26,9 @@ const LINKEDIN_API_BASE = 'https://api.linkedin.com/v2';
  * @returns {string} The user's URN (e.g., 'urn:li:person:abcdef123').
  */
 function getLinkedInPersonUrn(accessToken) {
-  const token = accessToken || LINKEDIN_ACCESS_TOKEN;
+  const token = accessToken || getLinkedInAccessToken();
+  if (!token) throw new Error('No Access Token available.');
+
   const url = `${LINKEDIN_API_BASE}/userinfo`;
   
   const options = {
@@ -54,7 +67,7 @@ function getLinkedInPersonUrn(accessToken) {
  * @param {string} linkDescription - (Optional) Description for the link card.
  */
 function postToLinkedIn(message, linkUrl, linkTitle, linkDescription) {
-  const token = LINKEDIN_ACCESS_TOKEN;
+  const token = getLinkedInAccessToken();
   if (!token) {
     Logger.log('No LinkedIn Access Token found.');
     return null;
@@ -137,7 +150,7 @@ function postToLinkedIn(message, linkUrl, linkTitle, linkDescription) {
  * @param {string} postUrn - The URN of the post to delete (e.g. urn:li:share:123).
  */
 function deleteLinkedInPost(postUrn) {
-  const token = LINKEDIN_ACCESS_TOKEN;
+  const token = getLinkedInAccessToken();
   if (!token) return;
 
   // If no URN provided, try to get the last one
@@ -149,16 +162,6 @@ function deleteLinkedInPost(postUrn) {
     }
   }
 
-  // The ID returned by ugcPosts is like 'urn:li:ugcPost:123'. 
-  // Should serve as the ID for deletion directly? 
-  // According to docs, DELETE /ugcPosts/{ugcPostId}
-  // We need to encode the URN if passing in URL, or just append it.
-  
-  // Actually, usually it's `https://api.linkedin.com/v2/ugcPosts/{urn}`
-  // But we need to url-encode the URN? No, normally passed directly or encoded.
-  // Let's try direct first. 
-  // Actually, for some endpoints it's `posts/{id}` but this is legacy `ugcPosts`.
-  
   const encodedUrn = encodeURIComponent(postUrn);
   const url = `${LINKEDIN_API_BASE}/ugcPosts/${encodedUrn}`;
 
@@ -190,7 +193,13 @@ function deleteLinkedInPost(postUrn) {
  * Test function to verify authentication.
  */
 function testLinkedInAuth() {
-  const urn = getLinkedInPersonUrn(LINKEDIN_ACCESS_TOKEN);
+  // Now uses the getter, so undefined reference error occurs.
+  const token = getLinkedInAccessToken();
+  if (!token) {
+    Logger.log("No token found. Please check Script Properties.");
+    return;
+  }
+  const urn = getLinkedInPersonUrn(token);
   Logger.log(`Authenticated as User URN: ${urn}`);
   return urn;
 }
