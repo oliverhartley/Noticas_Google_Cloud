@@ -187,6 +187,39 @@ function summarizeArticlesGWS() {
     }
   }
 
+  // --- LinkedIn Post ---
+  Logger.log('Starting LinkedIn Post for GWS...');
+  const videoSheet = ss.getSheetByName('GWS Video Overview');
+  let videoLink = '';
+  let videoTitle = 'Noticias GWS';
+  let videoDescription = 'Resumen de noticias de Google Workspace.';
+
+  if (videoSheet) {
+    const lastRow = videoSheet.getLastRow();
+    if (lastRow > 0) {
+      videoLink = videoSheet.getRange('A' + lastRow).getDisplayValue().trim();
+      const titleFromSheet = videoSheet.getRange('E' + lastRow).getDisplayValue().trim();
+      const descFromSheet = videoSheet.getRange('F' + lastRow).getDisplayValue().trim();
+
+      if (titleFromSheet) videoTitle = titleFromSheet;
+      if (descFromSheet) videoDescription = descFromSheet;
+    }
+  }
+
+  const openingPhraseText = randomPhraseObject ? randomPhraseObject.getText() : FALLBACK_PHRASE;
+  const linkedInMessage = `${openingPhraseText}\n\nCheck out the latest Google Workspace news update!`;
+
+  if (videoLink) {
+    const postId = postToLinkedIn(linkedInMessage, videoLink, videoTitle, videoDescription);
+    if (postId) {
+      Logger.log('Successfully posted to LinkedIn: ' + postId);
+    } else {
+      Logger.log('Failed to post to LinkedIn.');
+    }
+  } else {
+    Logger.log('No video link found for LinkedIn post. Skipping.');
+  }
+
   // --- Archive Rows ---
   if (rowsToMoveData.length > 0) {
     const lastRowOldSheet = oldSheet.getLastRow();
