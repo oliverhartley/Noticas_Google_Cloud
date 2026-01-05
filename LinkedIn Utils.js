@@ -254,6 +254,7 @@ function manualDeleteLastPost() {
   deleteLinkedInPost();
 }
 
+
 /**
  * Full lifecycle test: Posts "Hello World", waits 10s, then deletes it.
  */
@@ -282,4 +283,53 @@ function testLinkedInLifecycle() {
   deleteLinkedInPost(postId);
 
   Logger.log("--- Test Complete ---");
+}
+
+/**
+ * DEBUG FUNCTION: Inspects the raw profile data.
+ * Clears cache to ensure fresh fetch.
+ */
+function debugLinkedInProfile() {
+  Logger.log("--- DEBUGGING LINKEDIN PROFILE ---");
+
+  // 1. Clear Cache
+  const props = PropertiesService.getScriptProperties();
+  props.deleteProperty('LINKEDIN_PERSON_URN');
+  Logger.log("Cleared cached URN.");
+
+  const token = getLinkedInAccessToken();
+  if (!token) {
+    Logger.log("No token found.");
+    return;
+  }
+
+  // 2. Try OIDC
+  try {
+    const url = `${LINKEDIN_API_BASE}/userinfo`;
+    const response = UrlFetchApp.fetch(url, {
+      method: 'get',
+      headers: { 'Authorization': `Bearer ${token}` },
+      muteHttpExceptions: true
+    });
+    Logger.log(`OIDC /userinfo Response (${response.getResponseCode()}):`);
+    Logger.log(response.getContentText());
+  } catch (e) {
+    Logger.log("OIDC Error: " + e.message);
+  }
+
+  // 3. Try Legacy /me
+  try {
+    const url = `${LINKEDIN_API_BASE}/me`;
+    const response = UrlFetchApp.fetch(url, {
+      method: 'get',
+      headers: { 'Authorization': `Bearer ${token}` },
+      muteHttpExceptions: true
+    });
+    Logger.log(`Legacy /me Response (${response.getResponseCode()}):`);
+    Logger.log(response.getContentText());
+  } catch (e) {
+    Logger.log("Legacy Error: " + e.message);
+  }
+
+  Logger.log("--- END DEBUG ---");
 }
