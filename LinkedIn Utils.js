@@ -153,22 +153,35 @@ function initializeImageUpload(token, personUrn) {
  * @param {Blob} imageBlob - The image file blob.
  */
 function uploadImageBinary(uploadUrl, imageBlob) {
+  Logger.log(`Uploading to URL: ${uploadUrl.substring(0, 50)}...`);
+
   const options = {
     method: 'put',
     headers: {
-      // No Auth header needed for the upload URL usually, but let's check docs. 
-      // Actually strictly binary.
+      // LinkedIn Signed URLs often require strict Content-Type matching if enforced, or at least a valid one.
+      'Content-Type': imageBlob.getContentType()
     },
-    payload: imageBlob.getBytes(),
+    // Pass the Blob directly. UrlFetchApp usually handles this better for binary.
+    payload: imageBlob,
     muteHttpExceptions: true
   };
 
-  const response = UrlFetchApp.fetch(uploadUrl, options);
-  if (response.getResponseCode() === 201 || response.getResponseCode() === 200) {
-    Logger.log("Image binary uploaded successfully.");
-    return true;
-  } else {
-    Logger.log(`Error uploading binary: ${response.getResponseCode()} - ${response.getContentText()}`);
+  try {
+    const response = UrlFetchApp.fetch(uploadUrl, options);
+    const responseCode = response.getResponseCode();
+
+    if (responseCode === 201 || responseCode === 200) {
+      Logger.log("Image binary uploaded successfully.");
+      return true;
+    } else {
+      Logger.log(`Error uploading binary: ${responseCode}`);
+      // Log strict response only if not too huge
+      const body = response.getContentText();
+      Logger.log(`Response start: ${body.substring(0, 500)}`);
+      return false;
+    }
+  } catch (e) {
+    Logger.log(`Exception during binary upload: ${e.message}`);
     return false;
   }
 }
