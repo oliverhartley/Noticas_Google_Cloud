@@ -31,6 +31,13 @@ function getLinkedInAccessToken() {
  * @returns {string} The user's URN (e.g., 'urn:li:person:abcdef123').
  */
 function getLinkedInPersonUrn(accessToken) {
+  // 1. Check if we have a manually set or cached URN
+  const props = PropertiesService.getScriptProperties();
+  const cachedUrn = props.getProperty('LINKEDIN_PERSON_URN');
+  if (cachedUrn) {
+    return cachedUrn;
+  }
+
   const token = accessToken || getLinkedInAccessToken();
   if (!token) throw new Error('No Access Token available.');
 
@@ -48,6 +55,8 @@ function getLinkedInPersonUrn(accessToken) {
     const response = UrlFetchApp.fetch(url, options);
     if (response.getResponseCode() === 200) {
       const data = JSON.parse(response.getContentText());
+      // Cache the result to avoid future calls
+      props.setProperty('LINKEDIN_PERSON_URN', data.sub);
       return data.sub; // 'sub' is the URN in OIDC
     } else {
       Logger.log(`OIDC /userinfo failed (${response.getResponseCode()}). Trying legacy /me endpoint...`);
@@ -71,7 +80,9 @@ function getLinkedInPersonUrn(accessToken) {
     if (response.getResponseCode() === 200) {
       const data = JSON.parse(response.getContentText());
       // /me returns generic ID, need to prefix
-      return `urn:li:person:${data.id}`;
+      const urn = `urn:li:person:${data.id}`;
+      props.setProperty('LINKEDIN_PERSON_URN', urn);
+      return urn;
     } else {
       Logger.log(`Legacy /me failed: ${response.getResponseCode()} - ${response.getContentText()}`);
       throw new Error(`Failed to retrieve Profile ID. Scopes 'openid', 'profile', or 'r_liteprofile' might be missing.`);
