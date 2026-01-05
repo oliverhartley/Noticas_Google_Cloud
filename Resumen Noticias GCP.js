@@ -221,8 +221,15 @@ function summarizeArticlesGCP() {
   const openingPhraseText = randomPhraseObject ? randomPhraseObject.getText() : FALLBACK_PHRASE;
   // Use the video description (YouTube text) as the main commentary if available.
   const linkedInMessage = videoDescription ?
-    `${openingPhraseText}\n\n${videoDescription}` :
+    `${openingPhraseText}\n\n${videoDescription}` : 
     `${openingPhraseText}\n\nCheck out the latest Google Cloud news update!`;
+
+  Logger.log(`[DEBUG] LinkedIn Variables:
+    Video Link: ${videoLink}
+    Video Title: ${videoTitle}
+    Video Desc (Length): ${videoDescription ? videoDescription.length : 0}
+    Final Message: ${linkedInMessage}
+  `);
 
   // --- Fetch Optional Image ---
   let imageBlob = null;
