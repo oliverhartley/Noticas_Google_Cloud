@@ -237,11 +237,7 @@ function postToLinkedIn(message, linkUrl, linkTitle, linkDescription, imageBlob)
     // 3. Determine Format (Image vs Article)
     if (uploadedImageUrn) {
       // --- IMAGE POST ---
-      // Add the link to the text. User requested it at the BEGINNING.
-      if (linkUrl) {
-        finalMessage = `▶️ Vea el resumen aquí: ${linkUrl}\n\n${finalMessage}`;
-      }
-
+      // Link is now embedded in the message by the caller
       requestBody.commentary = finalMessage;
       requestBody.content = {
         "media": {
