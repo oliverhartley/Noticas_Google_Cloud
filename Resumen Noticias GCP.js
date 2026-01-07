@@ -226,33 +226,19 @@ function summarizeArticlesGCP() {
 
   // --- Fetch Optional Image ---
   let imageBlob = null;
+  let imageFile = null;
   try {
-    const folderId = '1N_MgJYotvEEuyMQU3TA_9S6lQwFrfwuI';
+    const folderId = '1mrNTjpckNS4sAcS6vB5M8aRoAvwbECpu'; // Dedicated GCP Folder
     const folder = DriveApp.getFolderById(folderId);
     const files = folder.getFiles();
 
-    let bestFile = null;
-    while (files.hasNext()) {
-      const file = files.next();
-      const name = file.getName().toUpperCase();
-
-      // 1. Strong Match: Contains 'GCP' or 'CLOUD'
-      if (name.includes('GCP') || name.includes('CLOUD')) {
-        bestFile = file;
-        break; // Found perfect match
-      }
-
-      // 2. Fallback: Use if it DOES NOT contain conflicting terms ('GWS', 'WORKSPACE')
-      if (!name.includes('GWS') && !name.includes('WORKSPACE')) {
-        if (!bestFile) bestFile = file;
-      }
-    }
-
-    if (bestFile) {
-      imageBlob = bestFile.getBlob();
-      Logger.log(`Found image for LinkedIn post: ${bestFile.getName()}`);
+    // Pick the first file, since the folder is now dedicated to GCP
+    if (files.hasNext()) {
+      imageFile = files.next();
+      imageBlob = imageFile.getBlob();
+      Logger.log(`Found image for LinkedIn post: ${imageFile.getName()}`);
     } else {
-      Logger.log("Warning: No suitable image found in Drive (filtered for GCP).");
+      Logger.log("Warning: No image found in dedicated GCP folder.");
     }
   } catch (e) {
     Logger.log(`Warning: Failed to fetch image from Drive: ${e.message}`);
@@ -263,6 +249,18 @@ function summarizeArticlesGCP() {
     const postId = postToLinkedIn(linkedInMessage, videoLink, videoTitle, videoDescription, imageBlob);
     if (postId) {
       Logger.log('Successfully posted to LinkedIn: ' + postId);
+
+      // --- Archive Image ---
+      if (imageFile) {
+        try {
+          const archiveFolderId = '1aN4NbNa6XqBXlKzWnsyfZ8ByOTOwjsnn';
+          const archiveFolder = DriveApp.getFolderById(archiveFolderId);
+          imageFile.moveTo(archiveFolder);
+          Logger.log(`Archived image '${imageFile.getName()}' to folder: ${archiveFolderId}`);
+        } catch (e) {
+          Logger.log(`Warning: Failed to archive image: ${e.message}`);
+        }
+      }
     } else {
       Logger.log('Failed to post to LinkedIn.');
     }
