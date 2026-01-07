@@ -5,7 +5,7 @@ function checkDriveFolder() {
     const files = folder.getFiles();
     while (files.hasNext()) {
       const file = files.next();
-      Logger.log('File: ' + file.getName() + ' (' + file.MimeType + ')');
+      Logger.log(`File: ${file.getName()} (${file.getMimeType()}) - Created: ${file.getDateCreated()}`);
     }
   } catch (e) {
     Logger.log('Error: ' + e.message);

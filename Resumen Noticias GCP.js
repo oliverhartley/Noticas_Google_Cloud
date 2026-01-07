@@ -230,10 +230,29 @@ function summarizeArticlesGCP() {
     const folderId = '1N_MgJYotvEEuyMQU3TA_9S6lQwFrfwuI';
     const folder = DriveApp.getFolderById(folderId);
     const files = folder.getFiles();
-    if (files.hasNext()) {
+
+    let bestFile = null;
+    while (files.hasNext()) {
       const file = files.next();
-      imageBlob = file.getBlob();
-      Logger.log(`Found image for LinkedIn post: ${file.getName()}`);
+      const name = file.getName().toUpperCase();
+
+      // 1. Strong Match: Contains 'GCP' or 'CLOUD'
+      if (name.includes('GCP') || name.includes('CLOUD')) {
+        bestFile = file;
+        break; // Found perfect match
+      }
+
+      // 2. Fallback: Use if it DOES NOT contain conflicting terms ('GWS', 'WORKSPACE')
+      if (!name.includes('GWS') && !name.includes('WORKSPACE')) {
+        if (!bestFile) bestFile = file;
+      }
+    }
+
+    if (bestFile) {
+      imageBlob = bestFile.getBlob();
+      Logger.log(`Found image for LinkedIn post: ${bestFile.getName()}`);
+    } else {
+      Logger.log("Warning: No suitable image found in Drive (filtered for GCP).");
     }
   } catch (e) {
     Logger.log(`Warning: Failed to fetch image from Drive: ${e.message}`);
