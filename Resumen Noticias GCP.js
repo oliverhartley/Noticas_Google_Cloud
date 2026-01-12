@@ -230,15 +230,24 @@ function summarizeArticlesGCP() {
   try {
     const folderId = '1mrNTjpckNS4sAcS6vB5M8aRoAvwbECpu'; // Dedicated GCP Folder
     const folder = DriveApp.getFolderById(folderId);
-    const files = folder.getFiles();
 
-    // Pick the first file, since the folder is now dedicated to GCP
-    if (files.hasNext()) {
-      imageFile = files.next();
+    // Robustly find the latest PNG (matching Email Utils logic)
+    const files = folder.getFilesByType(MimeType.PNG);
+    let latestTime = 0;
+
+    while (files.hasNext()) {
+      const f = files.next();
+      if (f.getLastUpdated().getTime() > latestTime) {
+        latestTime = f.getLastUpdated().getTime();
+        imageFile = f;
+      }
+    }
+
+    if (imageFile) {
       imageBlob = imageFile.getBlob();
       Logger.log(`Found image for LinkedIn post: ${imageFile.getName()}`);
     } else {
-      Logger.log("Warning: No image found in dedicated GCP folder.");
+      Logger.log("Warning: No PNG image found in dedicated GCP folder.");
     }
   } catch (e) {
     Logger.log(`Warning: Failed to fetch image from Drive: ${e.message}`);
@@ -379,22 +388,24 @@ function sendEmailWithSummariesGCP(documentId, bccRecipients, isTest = false) {
     htmlBody += `<p>Hola Todos.</p>`;
     htmlBody += `<p>${phrases.opening}</p>`;
 
+    // 5. Add PNG Image if available
+    const pngBlob = getLatestPngFromFolder(GCP_VIDEO_SOURCE_FOLDER_ID);
+    const inlineImages = {};
+
     if (videoLink) {
       htmlBody += `<p><strong>Resumen de noticias:</strong> <a href="${videoLink}">Ver video</a></p>`;
       htmlBody += `<p><strong style="color: #34A853;">Suscríbete a nuestro canal de YouTube y mantente siempre un paso adelante en tecnología.</strong></p>`;
+
+      if (pngBlob) {
+        inlineImages['summaryImage'] = pngBlob;
+        htmlBody += `<br><div style="text-align: center;"><img src="cid:summaryImage" style="max-width: 80%; height: auto; border: 1px solid #ddd; border-radius: 8px;"></div>`;
+      }
+
       if (videoDescription) {
         let cleanDescription = removeHashtags(videoDescription);
         const linkifiedDescription = linkifyTimestamps(cleanDescription, videoLink);
         htmlBody += `<p>${linkifiedDescription.replace(/\n/g, '<br>')}</p>`;
       }
-    }
-
-    // 5. Add PNG Image if available
-    const pngBlob = getLatestPngFromFolder(GCP_VIDEO_SOURCE_FOLDER_ID);
-    const inlineImages = {};
-    if (pngBlob) {
-      inlineImages['summaryImage'] = pngBlob;
-      htmlBody += `<br><div style="text-align: center;"><img src="cid:summaryImage" style="max-width: 80%; height: auto; border: 1px solid #ddd; border-radius: 8px;"></div>`;
     }
 
     htmlBody += `<br><p><strong>Para más detalles, aquí están las noticias del blog:</strong></p>`;
