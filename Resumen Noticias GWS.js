@@ -218,15 +218,24 @@ function summarizeArticlesGWS() {
   try {
     const folderId = '1N_MgJYotvEEuyMQU3TA_9S6lQwFrfwuI'; // Dedicated GWS Folder
     const folder = DriveApp.getFolderById(folderId);
-    const files = folder.getFiles();
 
-    // Pick the first file, since the folder is now dedicated to GWS
-    if (files.hasNext()) {
-      imageFile = files.next();
+    // Robustly find the latest PNG (matching Email Utils logic)
+    const files = folder.getFilesByType(MimeType.PNG);
+    let latestTime = 0;
+
+    while (files.hasNext()) {
+      const f = files.next();
+      if (f.getLastUpdated().getTime() > latestTime) {
+        latestTime = f.getLastUpdated().getTime();
+        imageFile = f;
+      }
+    }
+
+    if (imageFile) {
       imageBlob = imageFile.getBlob();
       Logger.log(`Found image for LinkedIn post: ${imageFile.getName()}`);
     } else {
-      Logger.log("Warning: No image found in dedicated GWS folder.");
+      Logger.log("Warning: No PNG image found in dedicated GWS folder.");
     }
   } catch (e) {
     Logger.log(`Warning: Failed to fetch image from Drive: ${e.message}`);
