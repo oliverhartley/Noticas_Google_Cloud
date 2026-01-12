@@ -365,22 +365,24 @@ function sendEmailWithSummariesGWS(documentId, bccRecipients, isTest = false) {
     htmlBody += `<p>Hola Todos.</p>`;
     htmlBody += `<p>${phrases.opening}</p>`;
 
+    // 5. Add PNG Image if available
+    const pngBlob = getLatestPngFromFolder(GWS_VIDEO_SOURCE_FOLDER_ID);
+    const inlineImages = {};
+
     if (videoLink) {
       htmlBody += `<p><strong>Resumen de noticias:</strong> <a href="${videoLink}">Ver video</a></p>`;
       htmlBody += `<p><strong style="color: #34A853;">Suscríbete a nuestro canal de YouTube y mantente siempre un paso adelante en tecnología.</strong></p>`;
+
+      if (pngBlob) {
+        inlineImages['summaryImage'] = pngBlob;
+        htmlBody += `<br><div style="text-align: center;"><img src="cid:summaryImage" style="max-width: 80%; height: auto; border: 1px solid #ddd; border-radius: 8px;"></div>`;
+      }
+
       if (videoDescription) {
         let cleanDescription = removeHashtags(videoDescription);
         const linkifiedDescription = linkifyTimestamps(cleanDescription, videoLink);
         htmlBody += `<p>${linkifiedDescription.replace(/\n/g, '<br>')}</p>`;
       }
-    }
-
-    // 5. Add PNG Image if available
-    const pngBlob = getLatestPngFromFolder(GWS_VIDEO_SOURCE_FOLDER_ID);
-    const inlineImages = {};
-    if (pngBlob) {
-      inlineImages['summaryImage'] = pngBlob;
-      htmlBody += `<br><div style="text-align: center;"><img src="cid:summaryImage" style="max-width: 80%; height: auto; border: 1px solid #ddd; border-radius: 8px;"></div>`;
     }
 
     htmlBody += `<br><p><strong>Para más detalles, aquí están las noticias del blog:</strong></p>`;
