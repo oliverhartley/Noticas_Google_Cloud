@@ -157,19 +157,33 @@ function removeHashtags(text) {
 }
 
 /**
- * Gets the blob of the latest PNG file in a folder.
+ * Gets the blob of the latest Image file (PNG or JPG) in a folder.
  * @param {string} folderId - The ID of the folder to search.
- * @return {GoogleAppsScript.Base.Blob|null} The blob of the latest PNG, or null if none found.
+ * @return {GoogleAppsScript.Base.Blob|null} The blob of the latest image, or null if none found.
  */
-function getLatestPngFromFolder(folderId) {
+function getLatestImageFromFolder(folderId) {
   try {
     const folder = DriveApp.getFolderById(folderId);
-    const files = folder.getFilesByType(MimeType.PNG);
+    // Fetch both PNG and JPEG
+    const pngFiles = folder.getFilesByType(MimeType.PNG);
+    const jpgFiles = folder.getFilesByType(MimeType.JPEG);
+
     let latestFile = null;
     let latestTime = 0;
 
-    while (files.hasNext()) {
-      const file = files.next();
+    // Check PNGs
+    while (pngFiles.hasNext()) {
+      const file = pngFiles.next();
+      const time = file.getLastUpdated().getTime();
+      if (time > latestTime) {
+        latestTime = time;
+        latestFile = file;
+      }
+    }
+
+    // Check JPGs
+    while (jpgFiles.hasNext()) {
+      const file = jpgFiles.next();
       const time = file.getLastUpdated().getTime();
       if (time > latestTime) {
         latestTime = time;
@@ -178,11 +192,11 @@ function getLatestPngFromFolder(folderId) {
     }
 
     if (latestFile) {
-      Logger.log(`Found latest PNG: ${latestFile.getName()}`);
+      Logger.log(`Found latest Image: ${latestFile.getName()} (${latestFile.getMimeType()})`);
       return latestFile.getBlob();
     }
   } catch (e) {
-    Logger.log(`Error getting latest PNG from folder ${folderId}: ${e.toString()}`);
+    Logger.log(`Error getting latest image from folder ${folderId}: ${e.toString()}`);
   }
   return null;
 }

@@ -231,23 +231,13 @@ function summarizeArticlesGCP() {
     const folderId = '1mrNTjpckNS4sAcS6vB5M8aRoAvwbECpu'; // Dedicated GCP Folder
     const folder = DriveApp.getFolderById(folderId);
 
-    // Robustly find the latest PNG (matching Email Utils logic)
-    const files = folder.getFilesByType(MimeType.PNG);
-    let latestTime = 0;
+    // Robustly find the latest Image
+    const latestBlob = getLatestImageFromFolder(folderId);
 
-    while (files.hasNext()) {
-      const f = files.next();
-      if (f.getLastUpdated().getTime() > latestTime) {
-        latestTime = f.getLastUpdated().getTime();
-        imageFile = f;
-      }
-    }
-
-    if (imageFile) {
-      imageBlob = imageFile.getBlob();
-      Logger.log(`Found image for LinkedIn post: ${imageFile.getName()}`);
+    if (latestBlob) {
+      imageBlob = latestBlob;
     } else {
-      Logger.log("Warning: No PNG image found in dedicated GCP folder.");
+      Logger.log("Warning: No Image found in dedicated GCP folder.");
     }
   } catch (e) {
     Logger.log(`Warning: Failed to fetch image from Drive: ${e.message}`);
@@ -388,8 +378,8 @@ function sendEmailWithSummariesGCP(documentId, bccRecipients, isTest = false) {
     htmlBody += `<p>Hola Todos.</p>`;
     htmlBody += `<p>${phrases.opening}</p>`;
 
-    // 5. Add PNG Image if available
-    const pngBlob = getLatestPngFromFolder(GCP_VIDEO_SOURCE_FOLDER_ID);
+    // 5. Add PNG/JPG Image if available
+    const pngBlob = getLatestImageFromFolder(GCP_VIDEO_SOURCE_FOLDER_ID);
     const inlineImages = {};
 
     if (videoLink) {

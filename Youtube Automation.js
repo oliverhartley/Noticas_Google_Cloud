@@ -98,6 +98,16 @@ function processAndUploadVideos(config) {
         logVideoToSheet(videoUrl, config, true, true, metadata.title, metadata.description); // Defaulting to not made for kids and subtitles enabled
         Logger.log(`Successfully processed and uploaded: ${videoFile.getName()}`);
 
+        // --- NEW: Upload Thumbnail ---
+        const thumbnailBlob = findMatchingThumbnail(config.SOURCE_FOLDER_ID, videoFile.getName());
+        if (thumbnailBlob) {
+          const thumbSuccess = setVideoThumbnail(uploadResult.videoId, thumbnailBlob);
+          if (thumbSuccess) Logger.log('Thumbnail set successfully.');
+          else Logger.log('Failed to set thumbnail.');
+        } else {
+          Logger.log('No matching thumbnail found.');
+        }
+
         // 4. Add to Playlist
         if (config.PLAYLIST_NAME) {
           try {
@@ -120,6 +130,14 @@ function processAndUploadVideos(config) {
 
       latestVideo.moveTo(destinationFolder);
       Logger.log(`Moved ${latestVideo.getName()} to the destination folder.`);
+
+      // Also move thumbnail if it existed and was specific
+      const thumbnailFile = findMatchingThumbnailFile(config.SOURCE_FOLDER_ID, videoFile.getName());
+      if (thumbnailFile) {
+        thumbnailFile.moveTo(destinationFolder);
+        Logger.log(`Moved thumbnail ${thumbnailFile.getName()} to destination.`);
+      }
+
     } else {
       Logger.log("No valid video found to process.");
     }
@@ -133,6 +151,7 @@ function processAndUploadVideos(config) {
     }
   }
 }
+
 
 /**
  * Generates video metadata using the Gemini API.
@@ -611,9 +630,82 @@ function checkVideoStatus(config) {
           Logger.log(`Error checking status for ${videoId}: ${e.toString()}`);
         }
       }
-    }
     Logger.log(`Status check complete for ${config.SHEET_NAME}.`);
   } catch (e) {
     Logger.log(`Error in checkVideoStatus: ${e.toString()}`);
   }
 }
+
+/**
+ * Sets the thumbnail for a video.
+ * @param {string} videoId The video ID.
+ * @param {GoogleAppsScript.Base.Blob} imageBlob The image blob.
+ * @return {boolean} True if successful.
+ */
+function setVideoThumbnail(videoId, imageBlob) {
+    try {
+      YouTube.Thumbnails.set(videoId, imageBlob);
+      return true;
+    } catch (e) {
+      Logger.log(`Error setting thumbnail for ${videoId}: ${e.toString()}`);
+      return false;
+    }
+  }
+
+  /**
+   * Finds a thumbnail matching the video name (minus extension) or returns the latest image.
+   * @param {string} folderId Source folder ID.
+   * @param {string} videoFilename Video filename (e.g. "myvideo.mp4").
+   * @return {GoogleAppsScript.Base.Blob|null}
+   */
+  function findMatchingThumbnail(folderId, videoFilename) {
+    const file = findMatchingThumbnailFile(folderId, videoFilename);
+    return file ? file.getBlob() : null;
+  }
+
+  /**
+   * Finds the file object for the thumbnail.
+   */
+  function findMatchingThumbnailFile(folderId, videoFilename) {
+    try {
+      const folder = DriveApp.getFolderById(folderId);
+      const baseName = videoFilename.substring(0, videoFilename.lastIndexOf('.'));
+
+      // 1. Try Exact Name Match (png or jpg)
+      const exactMatches = folder.getFilesByName(baseName + ".png");
+      if (exactMatches.hasNext()) return exactMatches.next();
+
+      const exactMatchesJpg = folder.getFilesByName(baseName + ".jpg");
+      if (exactMatchesJpg.hasNext()) return exactMatchesJpg.next();
+
+      // 2. Fallback: Latest Image
+      // Use the logic similar to Email Utils, but here we prioritize exact match first
+      const pngs = folder.getFilesByType(MimeType.PNG);
+      const jpgs = folder.getFilesByType(MimeType.JPEG);
+
+      let latestFile = null;
+      let latestTime = 0;
+
+      const checkFile = (iter) => {
+        while (iter.hasNext()) {
+          const f = iter.next();
+          if (f.getLastUpdated().getTime() > latestTime) {
+            latestTime = f.getLastUpdated().getTime();
+            latestFile = f;
+          }
+        }
+      };
+
+      checkFile(pngs);
+      checkFile(jpgs);
+
+      if (latestFile) {
+        Logger.log(`No exact match thumbnail found for ${videoFilename}. Using latest: ${latestFile.getName()}`);
+        return latestFile;
+      }
+
+    } catch (e) {
+      Logger.log(`Error searching for thumbnail: ${e.toString()}`);
+    }
+    return null;
+  }
