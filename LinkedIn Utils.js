@@ -128,15 +128,18 @@ function initializeImageUpload(token, personUrn) {
       'Authorization': `Bearer ${token}`,
       'Content-Type': 'application/json',
       'X-Restli-Protocol-Version': '2.0.0',
-      'LinkedIn-Version': '202511'
+      'LinkedIn-Version': '202401'
     },
     payload: JSON.stringify(requestBody),
     muteHttpExceptions: true
   };
 
   const response = UrlFetchApp.fetch(url, options);
+  Logger.log(`initializeUpload Response Code: ${response.getResponseCode()}`);
+
   if (response.getResponseCode() === 200) {
     const data = JSON.parse(response.getContentText());
+    Logger.log(`initializeUpload Response Data: ${JSON.stringify(data)}`);
     return {
       uploadUrl: data.value.uploadUrl,
       imageUrn: data.value.image
@@ -268,7 +271,7 @@ function postToLinkedIn(message, linkUrl, linkTitle, linkDescription, imageBlob)
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
         'X-Restli-Protocol-Version': '2.0.0',
-        'LinkedIn-Version': '202511' 
+        'LinkedIn-Version': '202401' 
       },
       payload: JSON.stringify(requestBody),
       muteHttpExceptions: true
@@ -345,7 +348,7 @@ function deleteLinkedInPost(postUrn) {
     headers: {
       'Authorization': `Bearer ${token}`,
       'X-Restli-Protocol-Version': '2.0.0',
-      'LinkedIn-Version': '202511'
+      'LinkedIn-Version': '202401'
     },
     muteHttpExceptions: true
   };

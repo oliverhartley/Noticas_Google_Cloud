@@ -375,6 +375,9 @@ function sendEmailWithSummariesGWS(documentId, bccRecipients, isTest = false) {
       htmlBody += `<p><strong style="color: #34A853;">Suscríbete a nuestro canal de YouTube y mantente siempre un paso adelante en tecnología.</strong></p>`;
 
       if (pngBlob) {
+        // Explicitly set name to match CID reference for reliability
+        const extension = pngBlob.getContentType() === MimeType.JPEG ? 'jpg' : 'png';
+        pngBlob.setName(`summaryImage.${extension}`);
         inlineImages['summaryImage'] = pngBlob;
         htmlBody += `<br><div style="text-align: center;"><img src="cid:summaryImage" style="max-width: 80%; height: auto; border: 1px solid #ddd; border-radius: 8px;"></div>`;
       }
