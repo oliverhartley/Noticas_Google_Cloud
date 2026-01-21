@@ -630,6 +630,7 @@ function checkVideoStatus(config) {
           Logger.log(`Error checking status for ${videoId}: ${e.toString()}`);
         }
       }
+    }
     Logger.log(`Status check complete for ${config.SHEET_NAME}.`);
   } catch (e) {
     Logger.log(`Error in checkVideoStatus: ${e.toString()}`);
