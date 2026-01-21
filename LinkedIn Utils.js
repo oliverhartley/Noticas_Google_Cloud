@@ -128,7 +128,7 @@ function initializeImageUpload(token, personUrn) {
       'Authorization': `Bearer ${token}`,
       'Content-Type': 'application/json',
       'X-Restli-Protocol-Version': '2.0.0',
-      'LinkedIn-Version': '202401'
+      'LinkedIn-Version': '202301'
     },
     payload: JSON.stringify(requestBody),
     muteHttpExceptions: true
@@ -271,7 +271,7 @@ function postToLinkedIn(message, linkUrl, linkTitle, linkDescription, imageBlob)
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
         'X-Restli-Protocol-Version': '2.0.0',
-        'LinkedIn-Version': '202401' 
+        'LinkedIn-Version': '202301' 
       },
       payload: JSON.stringify(requestBody),
       muteHttpExceptions: true
@@ -282,21 +282,15 @@ function postToLinkedIn(message, linkUrl, linkTitle, linkDescription, imageBlob)
     const responseBody = response.getContentText();
 
     if (responseCode === 201) {
-      // Header 'x-restli-id' contains the new URN, or it's in the body?
-      // /posts usually returns the created object or header.
-      // If 201 Created, check headers or body.
-      // Usually body is empty on 201? Or contains ID.
-      // Let's check headers for ID if body is empty, or try parsing body.
-
       let postId = '';
       const headers = response.getHeaders();
+      // Check all possible header variations for ID
       if (headers['x-linkedin-id']) {
         postId = headers['x-linkedin-id'];
       } else if (headers['x-restli-id']) {
         postId = headers['x-restli-id'];
       }
 
-      // If not in headers, check body (sometimes it's there)
       if (!postId && responseBody) {
         try {
           const data = JSON.parse(responseBody);
@@ -307,16 +301,20 @@ function postToLinkedIn(message, linkUrl, linkTitle, linkDescription, imageBlob)
       }
 
       Logger.log(`Successfully posted to LinkedIn. ID: ${postId}`);
-      // Store the last post ID in script properties for easy deletion
       PropertiesService.getScriptProperties().setProperty('LAST_LINKEDIN_POST_URN', postId);
       return postId;
     } else {
-      Logger.log(`Error posting to LinkedIn: ${responseCode} - ${responseBody}`);
+      Logger.log(`Error posting to LinkedIn: ${responseCode}`);
+      Logger.log(`Response Body: ${responseBody}`);
       return null;
     }
 
   } catch (e) {
     Logger.log(`Exception in postToLinkedIn: ${e.message}`);
+    // If it's a fetch error, try to log the response content if available
+    if (e.response) { // UrlFetchApp sometimes attaches response? No, usually not this way in GAS.
+      // But we can try to catch standard API errors structure
+    }
     return null;
   }
 }
@@ -348,7 +346,7 @@ function deleteLinkedInPost(postUrn) {
     headers: {
       'Authorization': `Bearer ${token}`,
       'X-Restli-Protocol-Version': '2.0.0',
-      'LinkedIn-Version': '202401'
+      'LinkedIn-Version': '202301'
     },
     muteHttpExceptions: true
   };
