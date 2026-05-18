@@ -128,16 +128,7 @@ function processAndUploadVideos(config) {
         }
       }
 
-      latestVideo.moveTo(destinationFolder);
-      Logger.log(`Moved ${latestVideo.getName()} to the destination folder.`);
-
-      // Also move thumbnail if it existed and was specific
-      const thumbnailFile = findMatchingThumbnailFile(config.SOURCE_FOLDER_ID, videoFile.getName());
-      if (thumbnailFile) {
-        thumbnailFile.moveTo(destinationFolder);
-        Logger.log(`Moved thumbnail ${thumbnailFile.getName()} to destination.`);
-      }
-
+      Logger.log(`Skipping immediate move of ${latestVideo.getName()} and thumbnail to destination (will be archived after sending email).`);
     } else {
       Logger.log("No valid video found to process.");
     }

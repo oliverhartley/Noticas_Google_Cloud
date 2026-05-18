@@ -25,6 +25,7 @@ const GCP_COLUMN_HEADER_CHANNEL = 'Channel'; // The header of the column contain
 const GCP_DOCUMENT_BASE_TITLE = 'Noticias GCP - '; // Base title for the new Google Document
 const GCP_EMAIL_SUBJECT_BASE = '[GCP Readiness] - Noticias GCP'; // Base subject of the email
 const GCP_VIDEO_SOURCE_FOLDER_ID = '1mrNTjpckNS4sAcS6vB5M8aRoAvwbECpu'; // Source folder for videos and PNGs
+const GCP_VIDEO_ARCHIVE_FOLDER_ID = '1aN4NbNa6XqBXlKzWnsyfZ8ByOTOwjsnn'; // Destination folder for processed files
 
 /**
  * Main function to read GCP articles, group by channel, summarize, write to a Google Doc, and email.
@@ -432,6 +433,10 @@ function sendEmailWithSummariesGCP(documentId, bccRecipients, isTest = false) {
       attachments: attachments.length > 0 ? attachments : null
     });
     Logger.log(`Successfully sent GCP email to: ${bccRecipients}`);
+
+    // Archive processed video, thumbnail and PDF files from source folder
+    archiveProcessedFiles(GCP_VIDEO_SOURCE_FOLDER_ID, GCP_VIDEO_ARCHIVE_FOLDER_ID);
+
     return true;
   } catch (e) {
     Logger.log(`EMAIL ERROR: Failed to send email: ${e.message}`);

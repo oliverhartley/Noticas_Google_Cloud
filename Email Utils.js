@@ -232,3 +232,76 @@ function getLatestPdfFromFolder(folderId) {
   }
   return null;
 }
+
+/**
+ * Moves the latest video, latest thumbnail, and latest PDF from a source folder to an archive folder.
+ * @param {string} sourceFolderId
+ * @param {string} archiveFolderId
+ */
+function archiveProcessedFiles(sourceFolderId, archiveFolderId) {
+  try {
+    const sourceFolder = DriveApp.getFolderById(sourceFolderId);
+    const archiveFolder = DriveApp.getFolderById(archiveFolderId);
+
+    // 1. Find and move latest video (MP4)
+    const videos = sourceFolder.getFilesByType('video/mp4');
+    let latestVideo = null;
+    let latestVideoTime = 0;
+    while (videos.hasNext()) {
+      const video = videos.next();
+      const time = video.getLastUpdated().getTime();
+      if (time > latestVideoTime) {
+        latestVideoTime = time;
+        latestVideo = video;
+      }
+    }
+    if (latestVideo) {
+      latestVideo.moveTo(archiveFolder);
+      Logger.log(`Archived video: ${latestVideo.getName()}`);
+    }
+
+    // 2. Find and move latest image (PNG or JPG)
+    const pngs = sourceFolder.getFilesByType(MimeType.PNG);
+    const jpgs = sourceFolder.getFilesByType(MimeType.JPEG);
+    let latestImage = null;
+    let latestImageTime = 0;
+
+    const checkImage = (iter) => {
+      while (iter.hasNext()) {
+        const f = iter.next();
+        const time = f.getLastUpdated().getTime();
+        if (time > latestImageTime) {
+          latestImageTime = time;
+          latestImage = f;
+        }
+      }
+    };
+    checkImage(pngs);
+    checkImage(jpgs);
+
+    if (latestImage) {
+      latestImage.moveTo(archiveFolder);
+      Logger.log(`Archived image: ${latestImage.getName()}`);
+    }
+
+    // 3. Find and move latest PDF
+    const pdfs = sourceFolder.getFilesByType(MimeType.PDF);
+    let latestPdf = null;
+    let latestPdfTime = 0;
+    while (pdfs.hasNext()) {
+      const pdf = pdfs.next();
+      const time = pdf.getLastUpdated().getTime();
+      if (time > latestPdfTime) {
+        latestPdfTime = time;
+        latestPdf = pdf;
+      }
+    }
+    if (latestPdf) {
+      latestPdf.moveTo(archiveFolder);
+      Logger.log(`Archived PDF: ${latestPdf.getName()}`);
+    }
+
+  } catch (e) {
+    Logger.log(`Error archiving processed files: ${e.toString()}`);
+  }
+}

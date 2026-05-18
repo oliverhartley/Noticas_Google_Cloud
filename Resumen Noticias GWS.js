@@ -13,6 +13,7 @@ const GWS_COLUMN_HEADER_CHANNEL = 'Channel'; // The header of the column contain
 const GWS_DOCUMENT_BASE_TITLE = 'Noticias GWS - '; // Base title for the new Google Document
 const GWS_EMAIL_SUBJECT_BASE = '[GWS Readiness] - Noticias GWS'; // Base subject of the email
 const GWS_VIDEO_SOURCE_FOLDER_ID = '1N_MgJYotvEEuyMQU3TA_9S6lQwFrfwuI'; // Source folder for videos and PNGs
+const GWS_VIDEO_ARCHIVE_FOLDER_ID = '14or8nArjbB4BO7nJvmDz2blPSOpQqoLa'; // Destination folder for GWS processed files
 
 /**
  * Main function to read GWS articles, group by channel, summarize, write to a Google Doc, and email.
@@ -420,6 +421,10 @@ function sendEmailWithSummariesGWS(documentId, bccRecipients, isTest = false) {
       attachments: attachments.length > 0 ? attachments : null
     });
     Logger.log(`Successfully sent GWS email to: ${bccRecipients}`);
+
+    // Archive processed GWS video, thumbnail and PDF files from source folder
+    archiveProcessedFiles(GWS_VIDEO_SOURCE_FOLDER_ID, GWS_VIDEO_ARCHIVE_FOLDER_ID);
+
     return true;
   } catch (e) {
     Logger.log(`GWS EMAIL ERROR: Failed to send email: ${e.message}`);
