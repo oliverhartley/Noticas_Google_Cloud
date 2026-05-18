@@ -437,7 +437,7 @@ function sendTestEmailGWS() {
     docId = docs.next().getId();
   } else {
     // Try to find the most recent GWS doc if today's doesn't exist
-    const searchDocs = DriveApp.searchFiles(`name contains '${GWS_DOCUMENT_BASE_TITLE}' and mimeType = 'application/vnd.google-apps.document'`);
+    const searchDocs = DriveApp.searchFiles(`title contains '${GWS_DOCUMENT_BASE_TITLE}' and mimeType = 'application/vnd.google-apps.document'`);
     let files = [];
     while (searchDocs.hasNext()) {
       files.push(searchDocs.next());

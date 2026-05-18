@@ -449,7 +449,7 @@ function sendTestEmailGCP() {
   } else {
     // Try to find the most recent GCP doc if today's doesn't exist
     // Better approach: Sort search results by date to find most recent doc.
-    const searchDocs = DriveApp.searchFiles(`name contains '${GCP_DOCUMENT_BASE_TITLE}' and mimeType = 'application/vnd.google-apps.document'`);
+    const searchDocs = DriveApp.searchFiles(`title contains '${GCP_DOCUMENT_BASE_TITLE}' and mimeType = 'application/vnd.google-apps.document'`);
     let files = [];
     while (searchDocs.hasNext()) {
       files.push(searchDocs.next());
