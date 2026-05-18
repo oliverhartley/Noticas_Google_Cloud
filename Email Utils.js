@@ -22,7 +22,7 @@ function generateEmailPhrases(videoTitle, videoDescription, type) {
   const dateStr = Utilities.formatDate(today, Session.getScriptTimeZone(), 'dd - MMM');
   const platform = type === 'GCP' ? 'Google Cloud' : 'Google Workspace';
 
-  const apiEndpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-preview:generateContent?key=${apiKey}`;
+  const apiEndpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${apiKey}`;
 
   const prompt = `
     Eres un experto en comunicación y tecnología para ${platform}.
@@ -197,6 +197,38 @@ function getLatestImageFromFolder(folderId) {
     }
   } catch (e) {
     Logger.log(`Error getting latest image from folder ${folderId}: ${e.toString()}`);
+  }
+  return null;
+}
+
+/**
+ * Gets the latest Google Slides file in a folder.
+ * @param {string} folderId - The ID of the folder to search.
+ * @return {GoogleAppsScript.Drive.File|null} The latest slide file, or null if none found.
+ */
+function getLatestSlideFromFolder(folderId) {
+  try {
+    const folder = DriveApp.getFolderById(folderId);
+    const slideFiles = folder.getFilesByType(MimeType.GOOGLE_SLIDES);
+
+    let latestFile = null;
+    let latestTime = 0;
+
+    while (slideFiles.hasNext()) {
+      const file = slideFiles.next();
+      const time = file.getLastUpdated().getTime();
+      if (time > latestTime) {
+        latestTime = time;
+        latestFile = file;
+      }
+    }
+
+    if (latestFile) {
+      Logger.log(`Found latest Slide: ${latestFile.getName()} (${latestFile.getUrl()})`);
+      return latestFile;
+    }
+  } catch (e) {
+    Logger.log(`Error getting latest slide from folder ${folderId}: ${e.toString()}`);
   }
   return null;
 }

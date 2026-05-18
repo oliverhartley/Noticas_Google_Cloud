@@ -389,10 +389,11 @@ function sendEmailWithSummariesGWS(documentId, bccRecipients, isTest = false) {
       }
     }
 
-    htmlBody += `<br><p><strong>Para más detalles, aquí están las noticias del blog:</strong></p>`;
-
-    // 6. Add Article Summaries from Doc (Links Only)
-    htmlBody += getHtmlContentFromDocGWS(documentId);
+    // 6. Add Google Slides presentation if available
+    const slideFile = getLatestSlideFromFolder(GWS_VIDEO_SOURCE_FOLDER_ID);
+    if (slideFile) {
+      htmlBody += `<br><p><strong>Deck de noticias:</strong> <a href="${slideFile.getUrl()}">Ver presentación</a></p>`;
+    }
 
     htmlBody += `<br><p>${phrases.closing}</p>`;
 
@@ -550,8 +551,6 @@ function getGeminiSummaryGWS(articleUrl) {
     throw new Error('GEMINI_API_KEY is not set in Script Properties.');
   }
 
-  const API_ENDPOINT = 'https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=' + GEMINI_API_KEY;
-  
   let articleText;
   try {
     const articleResponse = UrlFetchApp.fetch(articleUrl, { muteHttpExceptions: true });
@@ -567,7 +566,6 @@ function getGeminiSummaryGWS(articleUrl) {
     if (!articleText || articleText.length < 100) {
         throw new Error('Could not extract enough content from the article to summarize.');
     }
-
   } catch (e) {
     Logger.log(`Error fetching or processing the article ${articleUrl}: ${e.message}`);
     return `*Error Processing Article*\nCould not read the URL content. Reason: ${e.message}`;
@@ -594,36 +592,49 @@ function getGeminiSummaryGWS(articleUrl) {
     muteHttpExceptions: true
   };
 
-  const MAX_RETRIES = 3;
-  let delay = 1000; 
+  const models = [
+    { name: 'gemini-2.5-flash-lite', version: 'v1beta' },
+    { name: 'gemini-2.5-flash', version: 'v1beta' }
+  ];
 
-  for (let i = 0; i < MAX_RETRIES; i++) {
-    const response = UrlFetchApp.fetch(API_ENDPOINT, options);
-    const responseCode = response.getResponseCode();
-    const responseBody = response.getContentText();
+  for (const model of models) {
+    const API_ENDPOINT = `https://generativelanguage.googleapis.com/${model.version}/models/${model.name}:generateContent?key=${GEMINI_API_KEY}`;
+    const MAX_RETRIES = 3;
+    let delay = 1000; 
 
-    if (responseCode === 200) {
-      const jsonResponse = JSON.parse(responseBody);
-      if (jsonResponse.candidates && jsonResponse.candidates[0]?.content?.parts[0]?.text) {
-        return jsonResponse.candidates[0].content.parts[0].text; 
-      } else {
-        const blockReason = jsonResponse.promptFeedback?.blockReason || 'Unexpected response structure';
-        Logger.log(`API response was OK but content was missing. Reason: ${blockReason}. Body: ${responseBody}`);
-        throw new Error(`The API returned no content. Reason: ${blockReason}`);
+    for (let i = 0; i < MAX_RETRIES; i++) {
+      try {
+        const response = UrlFetchApp.fetch(API_ENDPOINT, options);
+        const responseCode = response.getResponseCode();
+        const responseBody = response.getContentText();
+
+        if (responseCode === 200) {
+          const jsonResponse = JSON.parse(responseBody);
+          if (jsonResponse.candidates && jsonResponse.candidates[0]?.content?.parts[0]?.text) {
+            return jsonResponse.candidates[0].content.parts[0].text; 
+          } else {
+            const blockReason = jsonResponse.promptFeedback?.blockReason || 'Unexpected response structure';
+            Logger.log(`API response was OK but content was missing with model ${model.name}. Reason: ${blockReason}. Body: ${responseBody}`);
+            throw new Error(`The API returned no content. Reason: ${blockReason}`);
+          }
+        } else if (responseCode === 429 || responseCode === 503) {
+          Logger.log(`Attempt ${i + 1} of ${MAX_RETRIES} with model ${model.name} failed with code ${responseCode}. Retrying in ${delay / 1000}s...`);
+          if (i < MAX_RETRIES - 1) { 
+            Utilities.sleep(delay);
+            delay *= 2; 
+          }
+        } else {
+          Logger.log(`Gemini API Error with model ${model.name}: ${responseBody}`);
+          break; // Fall back to next model
+        }
+      } catch (e) {
+        Logger.log(`Exception with model ${model.name}: ${e.message}`);
+        if (i === MAX_RETRIES - 1) break; // Fall back to next model
       }
-    } else if (responseCode === 429 || responseCode === 503) {
-      Logger.log(`Attempt ${i + 1} of ${MAX_RETRIES} failed with code ${responseCode}. Retrying in ${delay / 1000}s...`);
-      if (i < MAX_RETRIES - 1) { 
-        Utilities.sleep(delay);
-        delay *= 2; 
-      }
-    } else {
-      Logger.log(`Gemini API Error: ${responseBody}`);
-      throw new Error(`API call failed with code ${responseCode}: ${responseBody}`);
     }
   }
 
-  throw new Error(`Gemini API call failed after ${MAX_RETRIES} attempts for URL: ${articleUrl}`);
+  throw new Error(`Gemini API call failed for all models for URL: ${articleUrl}`);
 }
 
 // // Funciona Perfecto sin agregar vidseo de youtube

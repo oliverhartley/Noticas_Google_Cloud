@@ -401,10 +401,11 @@ function sendEmailWithSummariesGCP(documentId, bccRecipients, isTest = false) {
       }
     }
 
-    htmlBody += `<br><p><strong>Para más detalles, aquí están las noticias del blog:</strong></p>`;
-
-    // 6. Add Article Summaries from Doc (Links Only)
-    htmlBody += convertDocToHtmlGCP(documentId);
+    // 6. Add Google Slides presentation if available
+    const slideFile = getLatestSlideFromFolder(GCP_VIDEO_SOURCE_FOLDER_ID);
+    if (slideFile) {
+      htmlBody += `<br><p><strong>Deck de noticias:</strong> <a href="${slideFile.getUrl()}">Ver presentación</a></p>`;
+    }
 
     htmlBody += `<br><p>${phrases.closing}</p>`;
 
@@ -576,34 +577,26 @@ function getGeminiSummaryGCP(articleUrl) {
     throw new Error('La GEMINI_API_KEY no se encuentra en las Propiedades del Script.');
   }
 
-  // Corregido: Usa un nombre de modelo válido como "gemini-1.5-flash-latest".
-  const API_ENDPOINT = 'https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=' + GEMINI_API_KEY;
-  
   let articleText;
   try {
-    // Paso 2: Descargar el contenido HTML de la URL.
     const articleResponse = UrlFetchApp.fetch(articleUrl, { muteHttpExceptions: true });
     const responseCode = articleResponse.getResponseCode();
     
     if (responseCode === 200) {
       const htmlContent = articleResponse.getContentText();
-      // Paso 3: Extraer el texto limpio del HTML.
       articleText = getTextFromHtml(htmlContent);
     } else {
       throw new Error(`No se pudo obtener el contenido de la URL. Código de estado: ${responseCode}`);
     }
     
-    if (!articleText || articleText.length < 100) { // Si no hay texto o es muy corto.
+    if (!articleText || articleText.length < 100) {
         throw new Error('No se pudo extraer suficiente contenido del artículo para resumir.');
     }
-
   } catch (e) {
     Logger.log(`Error al descargar o procesar el artículo ${articleUrl}: ${e.message}`);
-    // Devuelve un error claro para que se registre en el documento.
     return `*Error al Procesar Artículo*\nNo se pudo leer el contenido de la URL. Razón: ${e.message}`;
   }
 
-  // Paso 4: Crear un prompt mejorado que incluya el contenido y pida al modelo que se base SOLO en él.
   const prompt = `Eres un experto en tecnología de Google Cloud. A continuación se encuentra el texto de un artículo.
   
   **Instrucciones:**
@@ -625,38 +618,49 @@ function getGeminiSummaryGCP(articleUrl) {
     muteHttpExceptions: true
   };
 
-  // El sistema de reintentos que ya tenías es una excelente idea. Lo conservamos.
-  const MAX_RETRIES = 3;
-  let delay = 1000; 
+  const models = [
+    { name: 'gemini-2.5-flash-lite', version: 'v1beta' },
+    { name: 'gemini-2.5-flash', version: 'v1beta' }
+  ];
 
-  for (let i = 0; i < MAX_RETRIES; i++) {
-    const response = UrlFetchApp.fetch(API_ENDPOINT, options);
-    const responseCode = response.getResponseCode();
-    const responseBody = response.getContentText();
+  for (const model of models) {
+    const API_ENDPOINT = `https://generativelanguage.googleapis.com/${model.version}/models/${model.name}:generateContent?key=${GEMINI_API_KEY}`;
+    const MAX_RETRIES = 3;
+    let delay = 1000; 
 
-    if (responseCode === 200) {
-      const jsonResponse = JSON.parse(responseBody);
-      if (jsonResponse.candidates && jsonResponse.candidates[0]?.content?.parts[0]?.text) {
-        return jsonResponse.candidates[0].content.parts[0].text; 
-      } else {
-         // Si la API responde OK pero el contenido está bloqueado o vacío (por seguridad, etc.)
-        const blockReason = jsonResponse.promptFeedback?.blockReason || 'Estructura de respuesta inesperada';
-        Logger.log(`Respuesta de la API sin contenido. Razón: ${blockReason}. Body: ${responseBody}`);
-        throw new Error(`La API no devolvió contenido. Razón: ${blockReason}`);
+    for (let i = 0; i < MAX_RETRIES; i++) {
+      try {
+        const response = UrlFetchApp.fetch(API_ENDPOINT, options);
+        const responseCode = response.getResponseCode();
+        const responseBody = response.getContentText();
+
+        if (responseCode === 200) {
+          const jsonResponse = JSON.parse(responseBody);
+          if (jsonResponse.candidates && jsonResponse.candidates[0]?.content?.parts[0]?.text) {
+            return jsonResponse.candidates[0].content.parts[0].text; 
+          } else {
+            const blockReason = jsonResponse.promptFeedback?.blockReason || 'Estructura de respuesta inesperada';
+            Logger.log(`Respuesta de la API sin contenido con modelo ${model.name}. Razón: ${blockReason}. Body: ${responseBody}`);
+            throw new Error(`La API no devolvió contenido. Razón: ${blockReason}`);
+          }
+        } else if (responseCode === 429 || responseCode === 503) {
+          Logger.log(`Intento ${i + 1} de ${MAX_RETRIES} con modelo ${model.name} falló con código ${responseCode}. Reintentando en ${delay / 1000}s...`);
+          if (i < MAX_RETRIES - 1) { 
+            Utilities.sleep(delay);
+            delay *= 2; 
+          }
+        } else {
+          Logger.log(`Error en la API de Gemini con modelo ${model.name}: ${responseBody}`);
+          break; // Fall back to next model
+        }
+      } catch (e) {
+        Logger.log(`Excepción con modelo ${model.name}: ${e.message}`);
+        if (i === MAX_RETRIES - 1) break; // Fall back to next model
       }
-    } else if (responseCode === 429 || responseCode === 503) { // 429: Rate limit, 503: Overloaded
-      Logger.log(`Intento ${i + 1} de ${MAX_RETRIES} falló con código ${responseCode}. Reintentando en ${delay / 1000}s...`);
-      if (i < MAX_RETRIES - 1) { 
-        Utilities.sleep(delay);
-        delay *= 2; 
-      }
-    } else {
-      Logger.log(`Error en la API de Gemini: ${responseBody}`);
-      throw new Error(`La llamada a la API falló con el código ${responseCode}: ${responseBody}`);
     }
   }
 
-  throw new Error(`La llamada a la API de Gemini falló después de ${MAX_RETRIES} intentos para la URL: ${articleUrl}`);
+  throw new Error(`La llamada a la API de Gemini falló para todos los modelos para la URL: ${articleUrl}`);
 }
 
 /**
@@ -695,8 +699,11 @@ function createDraftEmailWithSummariesGCP(documentId, bccRecipients, subject, op
       htmlBody += `<br><div style="text-align: center;"><img src="cid:summaryImage" style="max-width: 80%; height: auto; border: 1px solid #ddd; border-radius: 8px;"></div>`;
     }
 
-    // 5. Add the article summaries from the Google Doc (Links Only)
-    htmlBody += convertDocToHtmlGCP(documentId);
+    // 5. Add Google Slides presentation if available
+    const slideFile = getLatestSlideFromFolder(GCP_VIDEO_SOURCE_FOLDER_ID);
+    if (slideFile) {
+      htmlBody += `<br><p><strong>Deck de noticias:</strong> <a href="${slideFile.getUrl()}">Ver presentación</a></p>`;
+    }
     // --- END: MODIFIED SECTION ---
 
     const signatureHtml = `

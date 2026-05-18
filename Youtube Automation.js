@@ -299,8 +299,7 @@ function waitForFileProcessing(fileUri, apiKey) {
 
 function generateAndSaveBlackboardSummary(fileUri, apiKey, folderId, videoTitle) {
   const models = [
-    { name: 'gemini-3-pro-preview', version: 'v1beta' },
-    { name: 'gemini-2.5-pro', version: 'v1beta' },
+    { name: 'gemini-2.5-flash-lite', version: 'v1beta' },
     { name: 'gemini-2.5-flash', version: 'v1beta' }
   ];
 
@@ -355,8 +354,7 @@ function generateAndSaveBlackboardSummary(fileUri, apiKey, folderId, videoTitle)
 
 function generateContentWithFile(fileUri, apiKey, fileName) {
   const models = [
-    { name: 'gemini-3-pro-preview', version: 'v1beta' },
-    { name: 'gemini-2.5-pro', version: 'v1beta' },
+    { name: 'gemini-2.5-flash-lite', version: 'v1beta' },
     { name: 'gemini-2.5-flash', version: 'v1beta' }
   ];
 
@@ -661,7 +659,105 @@ function setVideoThumbnail(videoId, imageBlob) {
    */
   function findMatchingThumbnail(folderId, videoFilename) {
     const file = findMatchingThumbnailFile(folderId, videoFilename);
-    return file ? file.getBlob() : null;
+    return file ? resizeThumbnailIfNeeded(file) : null;
+  }
+
+  /**
+   * Resizes or compresses the thumbnail if its size exceeds the YouTube 2MB limit.
+   * @param {GoogleAppsScript.Drive.File} file The thumbnail file.
+   * @return {GoogleAppsScript.Base.Blob}
+   */
+  function resizeThumbnailIfNeeded(file) {
+    const blob = file.getBlob();
+    const maxSizeBytes = 2 * 1024 * 1024; // 2MB limit
+
+    if (blob.getBytes().length <= maxSizeBytes) {
+      return blob;
+    }
+
+    Logger.log(`Thumbnail "${file.getName()}" size (${blob.getBytes().length} bytes) exceeds 2MB limit. Attempting compression/resizing...`);
+
+    // Attempt 1: Convert to JPEG to reduce file size
+    try {
+      const jpegBlob = blob.getAs(MimeType.JPEG);
+      if (jpegBlob.getBytes().length <= maxSizeBytes) {
+        Logger.log(`Successfully compressed thumbnail to JPEG (${jpegBlob.getBytes().length} bytes).`);
+        return jpegBlob;
+      }
+    } catch (e) {
+      Logger.log(`Error converting blob to JPEG: ${e.toString()}`);
+    }
+
+    // Attempt 2: Use Drive API thumbnailLink to request a resized version (1280px width)
+    try {
+      const fileId = file.getId();
+      const fileMeta = Drive.Files.get(fileId, { fields: 'thumbnailLink' });
+      if (fileMeta && fileMeta.thumbnailLink) {
+        let thumbUrl = fileMeta.thumbnailLink;
+        if (thumbUrl.includes('=s')) {
+          thumbUrl = thumbUrl.replace(/=s\d+/, '=s1280');
+        } else if (thumbUrl.includes('sz=s')) {
+          thumbUrl = thumbUrl.replace(/sz=s\d+/, 'sz=s1280');
+        } else {
+          thumbUrl += '=s1280';
+        }
+
+        const response = UrlFetchApp.fetch(thumbUrl, {
+          headers: {
+            Authorization: 'Bearer ' + ScriptApp.getOAuthToken()
+          },
+          muteHttpExceptions: true
+        });
+
+        if (response.getResponseCode() === 200) {
+          const resizedBlob = response.getBlob().setName(file.getName());
+          if (resizedBlob.getBytes().length <= maxSizeBytes) {
+            Logger.log(`Successfully resized thumbnail via Drive API (${resizedBlob.getBytes().length} bytes).`);
+            return resizedBlob;
+          }
+        } else {
+          Logger.log(`Failed to fetch resized thumbnail from Drive API: HTTP ${response.getResponseCode()} - ${response.getContentText()}`);
+        }
+      }
+    } catch (e) {
+      Logger.log(`Error resizing thumbnail via Drive API: ${e.toString()}`);
+    }
+
+    // Attempt 3: Try requesting a smaller size (720px)
+    try {
+      const fileId = file.getId();
+      const fileMeta = Drive.Files.get(fileId, { fields: 'thumbnailLink' });
+      if (fileMeta && fileMeta.thumbnailLink) {
+        let thumbUrl = fileMeta.thumbnailLink;
+        if (thumbUrl.includes('=s')) {
+          thumbUrl = thumbUrl.replace(/=s\d+/, '=s720');
+        } else if (thumbUrl.includes('sz=s')) {
+          thumbUrl = thumbUrl.replace(/sz=s\d+/, 'sz=s720');
+        } else {
+          thumbUrl += '=s720';
+        }
+
+        const response = UrlFetchApp.fetch(thumbUrl, {
+          headers: {
+            Authorization: 'Bearer ' + ScriptApp.getOAuthToken()
+          },
+          muteHttpExceptions: true
+        });
+
+        if (response.getResponseCode() === 200) {
+          const resizedBlob = response.getBlob().setName(file.getName());
+          if (resizedBlob.getBytes().length <= maxSizeBytes) {
+            Logger.log(`Successfully resized thumbnail to 720px via Drive API (${resizedBlob.getBytes().length} bytes).`);
+            return resizedBlob;
+          }
+        }
+      }
+    } catch (e) {
+      Logger.log(`Error resizing thumbnail to 720px via Drive API: ${e.toString()}`);
+    }
+
+    Logger.log("Warning: Could not reduce thumbnail size below 2MB. Returning original blob.");
+    return blob;
   }
 
   /**
