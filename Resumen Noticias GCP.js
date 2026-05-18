@@ -1673,3 +1673,20 @@ function saveEmailAsDraftGCP() {
   
 //   Logger.log('Script finished.');
 // }
+
+/**
+ * Sends the GCP production email.
+ */
+function sendGcpEmail() {
+  const bccString = getEmailList('GCP'); 
+  if (bccString) {
+    const validEmails = validateEmails(bccString);
+    if (validEmails.length > 0) {
+      sendEmailWithSummariesGCP(null, validEmails.join(','));
+    } else {
+      Logger.log('Warning: No valid GCP email recipients found.');
+    }
+  } else {
+    Logger.log('Warning: GCP email list empty or not found.');
+  }
+}

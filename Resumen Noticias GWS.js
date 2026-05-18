@@ -1113,3 +1113,20 @@ function getGeminiSummaryGWS(articleUrl) {
 
 //   throw new Error(`Gemini API call failed after ${MAX_RETRIES} attempts for URL: ${articleUrl}`);
 // }
+
+/**
+ * Sends the GWS production email.
+ */
+function sendGwsEmail() {
+  const bccString = getEmailList('GWS'); 
+  if (bccString) {
+    const validEmails = validateEmails(bccString);
+    if (validEmails.length > 0) {
+      sendEmailWithSummariesGWS(null, validEmails.join(','));
+    } else {
+      Logger.log('Warning: No valid GWS email recipients found.');
+    }
+  } else {
+    Logger.log('Warning: GWS email list empty or not found.');
+  }
+}

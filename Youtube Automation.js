@@ -5,6 +5,7 @@
 // --- Configuration ---
 const CONFIG = {
   GWS: {
+    platform: "GWS",
     SOURCE_FOLDER_ID: "1N_MgJYotvEEuyMQU3TA_9S6lQwFrfwuI",
     DESTINATION_FOLDER_ID: "14or8nArjbB4BO7nJvmDz2blPSOpQqoLa",
     SHEET_NAME: "GWS Video Overview",
@@ -14,6 +15,7 @@ const CONFIG = {
     PLAYLIST_NAME: "GWS Updates"
   },
   GCP: {
+    platform: "GCP",
     SOURCE_FOLDER_ID: "1mrNTjpckNS4sAcS6vB5M8aRoAvwbECpu",
     DESTINATION_FOLDER_ID: "1aN4NbNa6XqBXlKzWnsyfZ8ByOTOwjsnn",
     SHEET_NAME: "GCP Video Overview",
@@ -126,6 +128,15 @@ function processAndUploadVideos(config) {
             Logger.log(`Error adding to playlist: ${e.toString()}`);
           }
         }
+      }
+
+      // --- Auto-trigger email send ---
+      if (config.platform === 'GCP') {
+        Logger.log("Auto-triggering GCP email send...");
+        sendGcpEmail();
+      } else if (config.platform === 'GWS') {
+        Logger.log("Auto-triggering GWS email send...");
+        sendGwsEmail();
       }
 
       Logger.log(`Skipping immediate move of ${latestVideo.getName()} and thumbnail to destination (will be archived after sending email).`);
