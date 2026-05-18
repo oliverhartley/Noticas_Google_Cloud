@@ -384,6 +384,12 @@ function sendEmailWithSummariesGCP(documentId, bccRecipients, isTest = false) {
 
     if (videoLink) {
       htmlBody += `<p><strong>Resumen de noticias:</strong> <a href="${videoLink}">Ver video</a></p>`;
+
+      const pdfFile = getLatestPdfFromFolder(GCP_VIDEO_SOURCE_FOLDER_ID);
+      if (pdfFile) {
+        htmlBody += `<p><strong>Deck de noticias:</strong> <a href="${pdfFile.getUrl()}">Ver presentación</a></p>`;
+      }
+
       htmlBody += `<p><strong style="color: #34A853;">Suscríbete a nuestro canal de YouTube y mantente siempre un paso adelante en tecnología.</strong></p>`;
 
       if (pngBlob) {
@@ -399,12 +405,6 @@ function sendEmailWithSummariesGCP(documentId, bccRecipients, isTest = false) {
         const linkifiedDescription = linkifyTimestamps(cleanDescription, videoLink);
         htmlBody += `<p>${linkifiedDescription.replace(/\n/g, '<br>')}</p>`;
       }
-    }
-
-    // 6. Add Google Slides presentation if available
-    const slideFile = getLatestSlideFromFolder(GCP_VIDEO_SOURCE_FOLDER_ID);
-    if (slideFile) {
-      htmlBody += `<br><p><strong>Deck de noticias:</strong> <a href="${slideFile.getUrl()}">Ver presentación</a></p>`;
     }
 
     htmlBody += `<br><p>${phrases.closing}</p>`;
@@ -689,6 +689,11 @@ function createDraftEmailWithSummariesGCP(documentId, bccRecipients, subject, op
     // 3. Add the new video paragraph if a link was found
     if (videoLink) {
       htmlBody += `<p style="margin: 0 0 10px 0;">Te aburre leer, como a mi :) ahora, gracias a NotebookLM, tenemos un resumen y análisis de las noticias aquí: <a href="${videoLink}" style="color: #1a73e8; text-decoration: none;">${videoLink}</a></p>`;
+      
+      const pdfFile = getLatestPdfFromFolder(GCP_VIDEO_SOURCE_FOLDER_ID);
+      if (pdfFile) {
+        htmlBody += `<p><strong>Deck de noticias:</strong> <a href="${pdfFile.getUrl()}">Ver presentación</a></p>`;
+      }
     }
     
     // 4. Add PNG Image if available
@@ -697,12 +702,6 @@ function createDraftEmailWithSummariesGCP(documentId, bccRecipients, subject, op
     if (pngBlob) {
       inlineImages['summaryImage'] = pngBlob;
       htmlBody += `<br><div style="text-align: center;"><img src="cid:summaryImage" style="max-width: 80%; height: auto; border: 1px solid #ddd; border-radius: 8px;"></div>`;
-    }
-
-    // 5. Add Google Slides presentation if available
-    const slideFile = getLatestSlideFromFolder(GCP_VIDEO_SOURCE_FOLDER_ID);
-    if (slideFile) {
-      htmlBody += `<br><p><strong>Deck de noticias:</strong> <a href="${slideFile.getUrl()}">Ver presentación</a></p>`;
     }
     // --- END: MODIFIED SECTION ---
 

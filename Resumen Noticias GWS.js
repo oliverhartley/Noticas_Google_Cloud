@@ -372,6 +372,12 @@ function sendEmailWithSummariesGWS(documentId, bccRecipients, isTest = false) {
 
     if (videoLink) {
       htmlBody += `<p><strong>Resumen de noticias:</strong> <a href="${videoLink}">Ver video</a></p>`;
+
+      const pdfFile = getLatestPdfFromFolder(GWS_VIDEO_SOURCE_FOLDER_ID);
+      if (pdfFile) {
+        htmlBody += `<p><strong>Deck de noticias:</strong> <a href="${pdfFile.getUrl()}">Ver presentación</a></p>`;
+      }
+
       htmlBody += `<p><strong style="color: #34A853;">Suscríbete a nuestro canal de YouTube y mantente siempre un paso adelante en tecnología.</strong></p>`;
 
       if (pngBlob) {
@@ -387,12 +393,6 @@ function sendEmailWithSummariesGWS(documentId, bccRecipients, isTest = false) {
         const linkifiedDescription = linkifyTimestamps(cleanDescription, videoLink);
         htmlBody += `<p>${linkifiedDescription.replace(/\n/g, '<br>')}</p>`;
       }
-    }
-
-    // 6. Add Google Slides presentation if available
-    const slideFile = getLatestSlideFromFolder(GWS_VIDEO_SOURCE_FOLDER_ID);
-    if (slideFile) {
-      htmlBody += `<br><p><strong>Deck de noticias:</strong> <a href="${slideFile.getUrl()}">Ver presentación</a></p>`;
     }
 
     htmlBody += `<br><p>${phrases.closing}</p>`;

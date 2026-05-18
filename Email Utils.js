@@ -202,20 +202,20 @@ function getLatestImageFromFolder(folderId) {
 }
 
 /**
- * Gets the latest Google Slides file in a folder.
+ * Gets the latest PDF file in a folder.
  * @param {string} folderId - The ID of the folder to search.
- * @return {GoogleAppsScript.Drive.File|null} The latest slide file, or null if none found.
+ * @return {GoogleAppsScript.Drive.File|null} The latest PDF file, or null if none found.
  */
-function getLatestSlideFromFolder(folderId) {
+function getLatestPdfFromFolder(folderId) {
   try {
     const folder = DriveApp.getFolderById(folderId);
-    const slideFiles = folder.getFilesByType(MimeType.GOOGLE_SLIDES);
+    const pdfFiles = folder.getFilesByType(MimeType.PDF);
 
     let latestFile = null;
     let latestTime = 0;
 
-    while (slideFiles.hasNext()) {
-      const file = slideFiles.next();
+    while (pdfFiles.hasNext()) {
+      const file = pdfFiles.next();
       const time = file.getLastUpdated().getTime();
       if (time > latestTime) {
         latestTime = time;
@@ -224,11 +224,11 @@ function getLatestSlideFromFolder(folderId) {
     }
 
     if (latestFile) {
-      Logger.log(`Found latest Slide: ${latestFile.getName()} (${latestFile.getUrl()})`);
+      Logger.log(`Found latest PDF: ${latestFile.getName()} (${latestFile.getUrl()})`);
       return latestFile;
     }
   } catch (e) {
-    Logger.log(`Error getting latest slide from folder ${folderId}: ${e.toString()}`);
+    Logger.log(`Error getting latest PDF from folder ${folderId}: ${e.toString()}`);
   }
   return null;
 }
