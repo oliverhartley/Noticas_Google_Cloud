@@ -389,6 +389,9 @@ function sendEmailWithSummariesGCP(documentId, bccRecipients, isTest = false) {
     }
 
     if (videoLink) {
+      if (pdfFile) {
+        htmlBody += `<p>Adjunto encontrarás un pdf con el resumen de las noticias.</p>`;
+      }
       htmlBody += `<p><strong>Resumen de noticias:</strong> <a href="${videoLink}">Ver video</a></p>`;
       htmlBody += `<p><strong style="color: #34A853;">Suscríbete a nuestro canal de YouTube y mantente siempre un paso adelante en tecnología.</strong></p>`;
 
@@ -695,6 +698,9 @@ function createDraftEmailWithSummariesGCP(documentId, bccRecipients, subject, op
     
     // 3. Add the new video paragraph if a link was found
     if (videoLink) {
+      if (pdfFile) {
+        htmlBody += `<p style="margin: 0 0 10px 0;">Adjunto encontrarás un pdf con el resumen de las noticias.</p>`;
+      }
       htmlBody += `<p style="margin: 0 0 10px 0;">Te aburre leer, como a mi :) ahora, gracias a NotebookLM, tenemos un resumen y análisis de las noticias aquí: <a href="${videoLink}" style="color: #1a73e8; text-decoration: none;">${videoLink}</a></p>`;
     }
     
