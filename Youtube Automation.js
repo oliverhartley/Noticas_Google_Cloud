@@ -11,7 +11,6 @@ const CONFIG = {
     SHEET_NAME: "GWS Video Overview",
     SPREADSHEET_ID: "15-yneYsrmgkpJ5CGK57RVS9chMoV-ixw_w7hsPcaPuo", // Assuming same spreadsheet, adjust if needed
     VIDEO_SHEET_NAME: 'GWS Video Overview',
-    BLACKBOARD_FOLDER_ID: '1av7Fs1fKEDKwzP1morVrOJ0eunw-6sJz',
     PLAYLIST_NAME: "GWS Updates"
   },
   GCP: {
@@ -21,7 +20,6 @@ const CONFIG = {
     SHEET_NAME: "GCP Video Overview",
     SPREADSHEET_ID: "15-yneYsrmgkpJ5CGK57RVS9chMoV-ixw_w7hsPcaPuo",
     VIDEO_SHEET_NAME: 'GCP Video Overview',
-    BLACKBOARD_FOLDER_ID: '1spu6q19oLUdtUV2uUVNAcTDnmWHMYhEw',
     PLAYLIST_NAME: "GCP Updates"
   }
 };
@@ -90,8 +88,8 @@ function processAndUploadVideos(config) {
       const videoFile = latestVideo; // Rename for clarity
       const apiKey = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
 
-      // 2. Generate Metadata (Title, Description, Tags) and Blackboard Summary
-      const metadata = generateVideoMetadata(videoFile, apiKey, config.BLACKBOARD_FOLDER_ID);
+      // 2. Generate Metadata (Title, Description, Tags)
+      const metadata = generateVideoMetadata(videoFile, apiKey);
 
       // 3. Upload to YouTube with generated metadata
       const uploadResult = uploadVideoToYouTube(videoFile, metadata);
@@ -159,10 +157,9 @@ function processAndUploadVideos(config) {
  * Generates video metadata using the Gemini API.
  * @param {GoogleAppsScript.Drive.File} videoFile - The video file.
  * @param {string} apiKey - The Gemini API key.
- * @param {string} blackboardFolderId - Optional folder ID for blackboard summary.
  * @return {object} Object containing title, description, and tags.
  */
-function generateVideoMetadata(videoFile, apiKey, blackboardFolderId = null) {
+function generateVideoMetadata(videoFile, apiKey) {
   const fileName = videoFile.getName();
 
   if (!apiKey) {
@@ -187,11 +184,6 @@ function generateVideoMetadata(videoFile, apiKey, blackboardFolderId = null) {
 
     // 3. Generate Content
     const metadata = generateContentWithFile(fileUri, apiKey, fileName);
-
-    // Generate Blackboard Summary if requested
-    if (blackboardFolderId && metadata && metadata.title) {
-      generateAndSaveBlackboardSummary(fileUri, apiKey, blackboardFolderId, metadata.title);
-    }
 
     // 4. Cleanup
     deleteGeminiFile(fileUri, apiKey);
@@ -297,60 +289,6 @@ function waitForFileProcessing(fileUri, apiKey) {
     Utilities.sleep(5000); // Wait 5 seconds between checks
   }
   return false; // Timeout
-}
-
-function generateAndSaveBlackboardSummary(fileUri, apiKey, folderId, videoTitle) {
-  const models = [
-    { name: 'gemini-2.5-flash-lite', version: 'v1beta' },
-    { name: 'gemini-2.5-flash', version: 'v1beta' }
-  ];
-
-  for (const model of models) {
-    try {
-      const apiEndpoint = `https://generativelanguage.googleapis.com/${model.version}/models/${model.name}:generateContent?key=${apiKey}`;
-
-      const prompt = `
-        Basado en este video, crea un resumen conciso que quepa en una pizarra escolar.
-        El resumen debe ser en español, claro, directo y destacar los puntos clave del video.
-        No incluyas un título, solo el resumen.
-      `;
-
-      const requestBody = {
-        contents: [{
-          parts: [
-            { text: prompt },
-            { fileData: { mimeType: "video/mp4", fileUri: fileUri } }
-          ]
-        }]
-      };
-
-      const options = {
-        method: 'post',
-        contentType: 'application/json',
-        payload: JSON.stringify(requestBody),
-        muteHttpExceptions: true
-      };
-
-      const response = UrlFetchApp.fetch(apiEndpoint, options);
-      if (response.getResponseCode() === 200) {
-        const jsonResponse = JSON.parse(response.getContentText());
-        if (jsonResponse.candidates && jsonResponse.candidates[0] && jsonResponse.candidates[0].content && jsonResponse.candidates[0].content.parts && jsonResponse.candidates[0].content.parts[0]) {
-          const summaryText = jsonResponse.candidates[0].content.parts[0].text;
-
-          const folder = DriveApp.getFolderById(folderId);
-          const fileName = `Resumen Pizarra - ${videoTitle}.txt`;
-          folder.createFile(fileName, summaryText, MimeType.PLAIN_TEXT);
-          Logger.log(`Blackboard summary saved using model ${model.name} for "${videoTitle}" in folder ID: ${folderId}`);
-          return; // Success, exit function
-        }
-      } else {
-        Logger.log(`Model ${model.name} failed for blackboard summary: ${response.getResponseCode()} - ${response.getContentText()}`);
-      }
-    } catch (e) {
-      Logger.log(`Exception with model ${model.name} in generateAndSaveBlackboardSummary: ${e.toString()}`);
-    }
-  }
-  Logger.log("All models failed for blackboard summary.");
 }
 
 
