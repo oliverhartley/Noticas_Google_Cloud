@@ -200,73 +200,7 @@ function summarizeArticlesGCP() {
     }
   }
 
-  // --- LinkedIn Post ---
-  Logger.log('Starting LinkedIn Post...');
-  const videoSheet = ss.getSheetByName('GCP Video Overview');
-  let videoLink = '';
-  let videoTitle = 'Noticias GCP';
-  let videoDescription = 'Resumen de noticias de Google Cloud.';
-
-  if (videoSheet) {
-    const lastRow = videoSheet.getLastRow();
-    if (lastRow > 0) {
-      videoLink = videoSheet.getRange('A' + lastRow).getDisplayValue().trim();
-      const titleFromSheet = videoSheet.getRange('E' + lastRow).getDisplayValue().trim();
-      const descFromSheet = videoSheet.getRange('F' + lastRow).getDisplayValue().trim();
-
-      if (titleFromSheet) videoTitle = titleFromSheet;
-      if (descFromSheet) videoDescription = descFromSheet;
-    }
-  }
-
-  const openingPhraseText = randomPhraseObject ? randomPhraseObject.getText() : FALLBACK_PHRASE;
-  // Use the video description (YouTube text) as the main commentary if available.
-  const linkedInMessage = videoDescription ?
-    `${openingPhraseText}\n\n▶️ Vea el resumen aquí: ${videoLink}\n\n${videoDescription}` :
-    `${openingPhraseText}\n\n▶️ Vea el resumen aquí: ${videoLink}\n\nCheck out the latest Google Cloud news update!`;
-
-  // --- Fetch Optional Image ---
-  let imageBlob = null;
-  let imageFile = null;
-  try {
-    const folderId = '1mrNTjpckNS4sAcS6vB5M8aRoAvwbECpu'; // Dedicated GCP Folder
-    const folder = DriveApp.getFolderById(folderId);
-
-    // Robustly find the latest Image
-    const latestBlob = getLatestImageFromFolder(folderId);
-
-    if (latestBlob) {
-      imageBlob = latestBlob;
-    } else {
-      Logger.log("Warning: No Image found in dedicated GCP folder.");
-    }
-  } catch (e) {
-    Logger.log(`Warning: Failed to fetch image from Drive: ${e.message}`);
-  }
-
-  if (videoLink) {
-    // postToLinkedIn is a global function from LinkedIn Utils.js
-    const postId = postToLinkedIn(linkedInMessage, videoLink, videoTitle, videoDescription, imageBlob);
-    if (postId) {
-      Logger.log('Successfully posted to LinkedIn: ' + postId);
-
-      // --- Archive Image ---
-      if (imageFile) {
-        try {
-          const archiveFolderId = '1aN4NbNa6XqBXlKzWnsyfZ8ByOTOwjsnn';
-          const archiveFolder = DriveApp.getFolderById(archiveFolderId);
-          imageFile.moveTo(archiveFolder);
-          Logger.log(`Archived image '${imageFile.getName()}' to folder: ${archiveFolderId}`);
-        } catch (e) {
-          Logger.log(`Warning: Failed to archive image: ${e.message}`);
-        }
-      }
-    } else {
-      Logger.log('Failed to post to LinkedIn.');
-    }
-  } else {
-    Logger.log('No video link found for LinkedIn post. Skipping.');
-  }
+  Logger.log('Skipping LinkedIn Post (handled automatically by YouTube automation)...');
 
   // --- Archive Rows ---
   if (rowsToMoveData.length > 0) {

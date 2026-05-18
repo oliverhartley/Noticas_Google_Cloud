@@ -126,6 +126,33 @@ function processAndUploadVideos(config) {
             Logger.log(`Error adding to playlist: ${e.toString()}`);
           }
         }
+
+        // --- NEW: Post to LinkedIn ---
+        try {
+          const ss = SpreadsheetApp.openById(config.SPREADSHEET_ID);
+          let openingPhraseText = "";
+          if (config.platform === 'GCP') {
+            const randomPhrase = getRandomPhraseGCP(ss);
+            openingPhraseText = randomPhrase ? randomPhrase.getText() : "Hola todos, les adjunto las ultimas noticias de Google Cloud.";
+          } else {
+            const randomPhrase = getRandomPhraseGWS(ss);
+            openingPhraseText = randomPhrase ? randomPhrase.getText() : "Hola todos, les adjunto las ultimas noticias de Google Workspace.";
+          }
+
+          const linkedInMessage = metadata.description ?
+            `${openingPhraseText}\n\n▶️ Vea el resumen aquí: ${videoUrl}\n\n${metadata.description}` :
+            `${openingPhraseText}\n\n▶️ Vea el resumen aquí: ${videoUrl}\n\nCheck out the latest updates!`;
+
+          Logger.log(`Posting to LinkedIn for ${config.platform}...`);
+          const postId = postToLinkedIn(linkedInMessage, videoUrl, metadata.title, metadata.description, thumbnailBlob);
+          if (postId) {
+            Logger.log(`Successfully posted to LinkedIn: ${postId}`);
+          } else {
+            Logger.log('Failed to post to LinkedIn.');
+          }
+        } catch (e) {
+          Logger.log(`Error creating LinkedIn post: ${e.toString()}`);
+        }
       }
 
       // --- Auto-trigger email send ---
