@@ -381,15 +381,15 @@ function sendEmailWithSummariesGCP(documentId, bccRecipients, isTest = false) {
     // 5. Add PNG/JPG Image if available
     const pngBlob = getLatestImageFromFolder(GCP_VIDEO_SOURCE_FOLDER_ID);
     const inlineImages = {};
+    const attachments = [];
+
+    const pdfFile = getLatestPdfFromFolder(GCP_VIDEO_SOURCE_FOLDER_ID);
+    if (pdfFile) {
+      attachments.push(pdfFile.getBlob());
+    }
 
     if (videoLink) {
       htmlBody += `<p><strong>Resumen de noticias:</strong> <a href="${videoLink}">Ver video</a></p>`;
-
-      const pdfFile = getLatestPdfFromFolder(GCP_VIDEO_SOURCE_FOLDER_ID);
-      if (pdfFile) {
-        htmlBody += `<p><strong>Deck de noticias:</strong> <a href="${pdfFile.getUrl()}">Ver presentación</a></p>`;
-      }
-
       htmlBody += `<p><strong style="color: #34A853;">Suscríbete a nuestro canal de YouTube y mantente siempre un paso adelante en tecnología.</strong></p>`;
 
       if (pngBlob) {
@@ -425,7 +425,8 @@ function sendEmailWithSummariesGCP(documentId, bccRecipients, isTest = false) {
       bcc: bccRecipients,
       subject: subject,
       htmlBody: htmlBody,
-      inlineImages: Object.keys(inlineImages).length > 0 ? inlineImages : null
+      inlineImages: Object.keys(inlineImages).length > 0 ? inlineImages : null,
+      attachments: attachments.length > 0 ? attachments : null
     });
     Logger.log(`Successfully sent GCP email to: ${bccRecipients}`);
     return true;
@@ -681,6 +682,12 @@ function createDraftEmailWithSummariesGCP(documentId, bccRecipients, subject, op
       }
     }
 
+    const attachments = [];
+    const pdfFile = getLatestPdfFromFolder(GCP_VIDEO_SOURCE_FOLDER_ID);
+    if (pdfFile) {
+      attachments.push(pdfFile.getBlob());
+    }
+
     // 2. Build the email body piece by piece
     let htmlBody = `<div style="font-family: Arial, sans-serif; font-size: 11pt;">`;
     htmlBody += openingPhraseHtml;
@@ -689,11 +696,6 @@ function createDraftEmailWithSummariesGCP(documentId, bccRecipients, subject, op
     // 3. Add the new video paragraph if a link was found
     if (videoLink) {
       htmlBody += `<p style="margin: 0 0 10px 0;">Te aburre leer, como a mi :) ahora, gracias a NotebookLM, tenemos un resumen y análisis de las noticias aquí: <a href="${videoLink}" style="color: #1a73e8; text-decoration: none;">${videoLink}</a></p>`;
-      
-      const pdfFile = getLatestPdfFromFolder(GCP_VIDEO_SOURCE_FOLDER_ID);
-      if (pdfFile) {
-        htmlBody += `<p><strong>Deck de noticias:</strong> <a href="${pdfFile.getUrl()}">Ver presentación</a></p>`;
-      }
     }
     
     // 4. Add PNG Image if available
@@ -720,7 +722,8 @@ function createDraftEmailWithSummariesGCP(documentId, bccRecipients, subject, op
     GmailApp.createDraft('', subject, '', {
       bcc: bccRecipients,
       htmlBody: htmlBody,
-      inlineImages: Object.keys(inlineImages).length > 0 ? inlineImages : null
+      inlineImages: Object.keys(inlineImages).length > 0 ? inlineImages : null,
+      attachments: attachments.length > 0 ? attachments : null
     });
 
     Logger.log(`Successfully created email draft for recipients: ${bccRecipients}`);

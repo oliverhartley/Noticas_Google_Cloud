@@ -369,15 +369,15 @@ function sendEmailWithSummariesGWS(documentId, bccRecipients, isTest = false) {
     // 5. Add PNG/JPG Image if available
     const pngBlob = getLatestImageFromFolder(GWS_VIDEO_SOURCE_FOLDER_ID);
     const inlineImages = {};
+    const attachments = [];
+
+    const pdfFile = getLatestPdfFromFolder(GWS_VIDEO_SOURCE_FOLDER_ID);
+    if (pdfFile) {
+      attachments.push(pdfFile.getBlob());
+    }
 
     if (videoLink) {
       htmlBody += `<p><strong>Resumen de noticias:</strong> <a href="${videoLink}">Ver video</a></p>`;
-
-      const pdfFile = getLatestPdfFromFolder(GWS_VIDEO_SOURCE_FOLDER_ID);
-      if (pdfFile) {
-        htmlBody += `<p><strong>Deck de noticias:</strong> <a href="${pdfFile.getUrl()}">Ver presentación</a></p>`;
-      }
-
       htmlBody += `<p><strong style="color: #34A853;">Suscríbete a nuestro canal de YouTube y mantente siempre un paso adelante en tecnología.</strong></p>`;
 
       if (pngBlob) {
@@ -413,7 +413,8 @@ function sendEmailWithSummariesGWS(documentId, bccRecipients, isTest = false) {
       bcc: bccRecipients,
       subject: subject,
       htmlBody: htmlBody,
-      inlineImages: Object.keys(inlineImages).length > 0 ? inlineImages : null
+      inlineImages: Object.keys(inlineImages).length > 0 ? inlineImages : null,
+      attachments: attachments.length > 0 ? attachments : null
     });
     Logger.log(`Successfully sent GWS email to: ${bccRecipients}`);
     return true;
